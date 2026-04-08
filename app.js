@@ -484,7 +484,6 @@ async function loadCompletedTasks() {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     for (const list of allLists) {
-        if (hiddenLists.includes(list.id)) continue;
         try {
             const tasks = await fetchCompletedTasks(list.id);
             for (const task of tasks) {
@@ -504,12 +503,13 @@ async function loadCompletedTasks() {
         return db - da;
     });
 
+    const visibleCompleted = completedTasks.filter(({ listId }) => !hiddenLists.includes(listId));
     container.innerHTML = "";
-    if (completedTasks.length === 0) {
+    if (visibleCompleted.length === 0) {
         container.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;font-style:italic;">Aucune tâche complétée</div>';
         return;
     }
-    completedTasks.forEach(({ task, listId, listName }) => {
+    visibleCompleted.forEach(({ task, listId, listName }) => {
         const card = document.createElement("div");
         card.className = "completed-card";
         card.style.cursor = "pointer";
@@ -609,7 +609,6 @@ async function loadAndRenderTasks() {
         allTasks = [];
         const failedLists = [];
         for (const list of allLists) {
-            if (hiddenLists.includes(list.id)) continue;
             try {
                 const tasks = await fetchTasks(list.id);
                 const color = getListColor(list.displayName);
@@ -637,6 +636,7 @@ function renderDashboard() {
     const today = new Date(); today.setHours(0,0,0,0);
     const weekGrid = document.getElementById("week-grid");
     weekGrid.innerHTML = "";
+    const visibleTasks = allTasks.filter(({ listId }) => !hiddenLists.includes(listId));
 
     weekDays.forEach((day) => {
         const col = document.createElement("div");
@@ -653,7 +653,7 @@ function renderDashboard() {
         col.appendChild(header);
         col.appendChild(dateNum);
 
-        const dayTasks = allTasks.filter(({ task }) => {
+        const dayTasks = visibleTasks.filter(({ task }) => {
             if (!task.dueDateTime) return false;
             const due = new Date(task.dueDateTime.dateTime + "Z");
             return isSameDay(due, day);
@@ -677,7 +677,7 @@ function renderDashboard() {
     inboxCol.dataset.date = "inbox";
     setupDropZone(inboxCol);
 
-    const inboxTasks = allTasks.filter(({ task }) => !task.dueDateTime);
+    const inboxTasks = visibleTasks.filter(({ task }) => !task.dueDateTime);
     if (inboxTasks.length === 0) {
         const empty = document.createElement("div");
         empty.className = "empty-msg";
