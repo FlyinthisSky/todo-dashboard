@@ -351,6 +351,24 @@ function renderTagPanel() {
     });
 }
 
+// ===== CLICK OUTSIDE TO CLOSE PANELS =====
+document.addEventListener("mousedown", (e) => {
+    const filterPanel = document.getElementById("filter-panel");
+    const tagPanel = document.getElementById("tag-panel");
+    const headerActions = document.querySelector(".header-actions");
+
+    if (filterPanel.classList.contains("open") &&
+        !filterPanel.contains(e.target) &&
+        (!headerActions || !headerActions.contains(e.target))) {
+        filterPanel.classList.remove("open");
+    }
+    if (tagPanel.classList.contains("open") &&
+        !tagPanel.contains(e.target) &&
+        (!headerActions || !headerActions.contains(e.target))) {
+        tagPanel.classList.remove("open");
+    }
+});
+
 // ===== COMPLETED TASKS =====
 let completedTasks = [];
 
