@@ -665,7 +665,11 @@ function setupDropZone(el) {
                 updates.dueDateTime = { dateTime: formatDateForGraph(new Date(targetDate)), timeZone: "UTC" };
             }
             await updateTask(data.listId, data.taskId, updates);
-            await loadAndRenderTasks();
+            const item = allTasks.find(t => t.task.id === data.taskId && t.listId === data.listId);
+            if (item) {
+                item.task.dueDateTime = updates.dueDateTime;
+            }
+            renderDashboard();
         } catch (err) {
             console.error("Drop failed:", err);
             showToast("Impossible de déplacer la tâche.", true);
