@@ -206,6 +206,76 @@
             border: 1px solid rgba(212,165,116,0.2);
         }
         .modal-btn:hover { opacity: 0.9; }
+        .modal-btn.danger {
+            background: linear-gradient(135deg, #FF6B6B, #ee5a5a); color: #fff;
+        }
+        .modal-actions { justify-content: space-between; }
+
+        /* ===== FILTER PANEL ===== */
+        .filter-panel {
+            display: none; position: absolute; top: 60px; right: 24px;
+            background: var(--bg-column); border: 1px solid rgba(212,165,116,0.2);
+            border-radius: 10px; padding: 16px; z-index: 150; width: 280px;
+            max-height: 400px; overflow-y: auto;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        }
+        .filter-panel.open { display: block; }
+        .filter-panel h3 { color: var(--accent-warm); font-size: 0.9rem; margin-bottom: 10px; }
+        .filter-item {
+            display: flex; align-items: center; gap: 8px; padding: 4px 0;
+            font-size: 0.8rem; color: var(--text-secondary);
+        }
+        .filter-item input[type="checkbox"] { accent-color: var(--accent-warm); }
+
+        /* ===== COMPLETED SIDEBAR ===== */
+        .completed-sidebar {
+            display: none; width: 220px; min-width: 220px;
+            background: var(--bg-column); border-radius: var(--radius-column);
+            padding: 14px; flex-direction: column; gap: 8px; overflow-y: auto;
+        }
+        .completed-sidebar.open { display: flex; }
+        .completed-sidebar .column-header {
+            font-size: 0.8rem; font-weight: 700; color: var(--accent-warm);
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+        }
+        .completed-card {
+            padding: 8px 10px; border-radius: var(--radius-card);
+            background: rgba(255,255,255,0.05); font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .completed-card .task-title { text-decoration: line-through; line-height: 1.3; }
+        .completed-card .completed-meta {
+            display: flex; justify-content: space-between; margin-top: 4px;
+            font-size: 0.65rem; opacity: 0.5;
+        }
+
+        /* ===== CUSTOM CHECKBOXES ===== */
+        .filter-item input[type="checkbox"] { display: none; }
+        .filter-item .cb {
+            width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0;
+            border: 2px solid rgba(212,165,116,0.3); background: transparent;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s; cursor: pointer;
+        }
+        .filter-item input:checked + .cb {
+            background: var(--accent-warm); border-color: var(--accent-warm);
+        }
+        .filter-item input:checked + .cb::after {
+            content: ''; width: 5px; height: 9px;
+            border: solid #1e1812; border-width: 0 2px 2px 0;
+            transform: rotate(45deg); margin-top: -2px;
+        }
+        .filter-actions {
+            display: flex; gap: 8px; margin-bottom: 8px; padding-bottom: 8px;
+            border-bottom: 1px solid rgba(212,165,116,0.1);
+        }
+        .filter-actions button {
+            background: none; border: 1px solid rgba(212,165,116,0.2);
+            color: var(--text-secondary); font-family: var(--font-main);
+            font-size: 0.7rem; font-weight: 600; padding: 4px 10px;
+            border-radius: 4px; cursor: pointer;
+        }
+        .filter-actions button:hover { background: rgba(212,165,116,0.1); }
 
         /* ===== UNDO TOAST ===== */
         .toast {
@@ -291,9 +361,12 @@
     <div class="header">
         <h1>Ma Semaine</h1>
         <div class="header-actions">
+            <button class="header-btn" onclick="toggleCompleted()">Complétées</button>
+            <button class="header-btn" onclick="toggleFilter()">Filtrer</button>
             <button class="header-btn" onclick="refreshTasks()">Rafraîchir</button>
             <button class="header-btn" onclick="logout()">Déconnexion</button>
         </div>
+        <div class="filter-panel" id="filter-panel"></div>
     </div>
     <div class="main">
         <div class="inbox" id="inbox-column">
@@ -301,6 +374,10 @@
             <div id="inbox-tasks"></div>
         </div>
         <div class="week-grid" id="week-grid"></div>
+        <div class="completed-sidebar" id="completed-sidebar">
+            <div class="column-header">Complétées</div>
+            <div id="completed-tasks"></div>
+        </div>
     </div>
     <div class="footer">
         <span id="refresh-timer">Auto-refresh dans 15 min</span>
@@ -381,9 +458,30 @@ async function graphPatch(url, body) {
     if (!r.ok) throw new Error("Graph PATCH error: " + r.status);
     return r.json();
 }
-async function fetchLists() { return (await graphGet(GRAPH_BASE + "/me/todo/lists")).value; }
+async function graphGetAll(url) {
+    let results = [];
+    let nextUrl = url;
+    while (nextUrl) {
+        const data = await graphGet(nextUrl);
+        results = results.concat(data.value);
+        nextUrl = data["@odata.nextLink"] || null;
+    }
+    return results;
+}
+async function graphDelete(url) {
+    const token = await getAccessToken();
+    const r = await fetch(url, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+    if (!r.ok) throw new Error("Graph DELETE error: " + r.status);
+}
+async function fetchLists() { return graphGetAll(GRAPH_BASE + "/me/todo/lists"); }
 async function fetchTasks(listId) {
-    return (await graphGet(GRAPH_BASE + "/me/todo/lists/" + listId + "/tasks?$filter=status eq 'notStarted'")).value;
+    return graphGetAll(GRAPH_BASE + "/me/todo/lists/" + listId + "/tasks?$filter=status eq 'notStarted'");
+}
+async function fetchCompletedTasks(listId) {
+    return graphGetAll(GRAPH_BASE + "/me/todo/lists/" + listId + "/tasks?$filter=status eq 'completed'");
+}
+async function deleteTask(listId, taskId) {
+    return graphDelete(GRAPH_BASE + "/me/todo/lists/" + listId + "/tasks/" + taskId);
 }
 async function completeTask(listId, taskId) {
     return graphPatch(GRAPH_BASE + "/me/todo/lists/" + listId + "/tasks/" + taskId, { status: "completed" });
@@ -471,6 +569,189 @@ function formatDateForInput(date) {
     return y + "-" + m + "-" + d;
 }
 
+// ===== LIST FILTER =====
+let hiddenLists = JSON.parse(localStorage.getItem("hiddenLists") || "[]");
+
+function saveHiddenLists() { localStorage.setItem("hiddenLists", JSON.stringify(hiddenLists)); }
+
+function toggleFilter() {
+    const panel = document.getElementById("filter-panel");
+    panel.classList.toggle("open");
+    if (panel.classList.contains("open")) renderFilterPanel();
+}
+
+function renderFilterPanel() {
+    const panel = document.getElementById("filter-panel");
+    panel.innerHTML = '<h3>Listes affichées</h3>';
+
+    const actions = document.createElement("div");
+    actions.className = "filter-actions";
+    const selectAll = document.createElement("button");
+    selectAll.textContent = "Tout cocher";
+    selectAll.onclick = () => { hiddenLists = []; saveHiddenLists(); renderFilterPanel(); renderDashboard(); };
+    const selectNone = document.createElement("button");
+    selectNone.textContent = "Tout décocher";
+    selectNone.onclick = () => { hiddenLists = allLists.map(l => l.id); saveHiddenLists(); renderFilterPanel(); renderDashboard(); };
+    actions.appendChild(selectAll);
+    actions.appendChild(selectNone);
+    panel.appendChild(actions);
+
+    allLists.forEach(list => {
+        const item = document.createElement("label");
+        item.className = "filter-item";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.id = "filter-" + list.id;
+        cb.checked = !hiddenLists.includes(list.id);
+        cb.addEventListener("change", () => {
+            if (cb.checked) {
+                hiddenLists = hiddenLists.filter(id => id !== list.id);
+            } else {
+                hiddenLists.push(list.id);
+            }
+            saveHiddenLists();
+            renderDashboard();
+        });
+        const visual = document.createElement("span");
+        visual.className = "cb";
+        item.appendChild(cb);
+        item.appendChild(visual);
+        item.appendChild(document.createTextNode(list.displayName));
+        panel.appendChild(item);
+    });
+}
+
+// ===== COMPLETED TASKS =====
+let completedTasks = [];
+
+function toggleCompleted() {
+    const sidebar = document.getElementById("completed-sidebar");
+    sidebar.classList.toggle("open");
+    if (sidebar.classList.contains("open")) loadCompletedTasks();
+}
+
+async function loadCompletedTasks() {
+    const container = document.getElementById("completed-tasks");
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;">Chargement...</div>';
+    completedTasks = [];
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    for (const list of allLists) {
+        if (hiddenLists.includes(list.id)) continue;
+        try {
+            const tasks = await fetchCompletedTasks(list.id);
+            for (const task of tasks) {
+                if (task.completedDateTime) {
+                    const completed = new Date(task.completedDateTime.dateTime + "Z");
+                    if (completed >= thirtyDaysAgo) {
+                        completedTasks.push({ task, listId: list.id, listName: list.displayName });
+                    }
+                }
+            }
+        } catch (e) { /* skip inaccessible lists */ }
+    }
+
+    completedTasks.sort((a, b) => {
+        const da = new Date(a.task.completedDateTime.dateTime + "Z");
+        const db = new Date(b.task.completedDateTime.dateTime + "Z");
+        return db - da;
+    });
+
+    container.innerHTML = "";
+    if (completedTasks.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;font-style:italic;">Aucune tâche complétée</div>';
+        return;
+    }
+    completedTasks.forEach(({ task, listId, listName }) => {
+        const card = document.createElement("div");
+        card.className = "completed-card";
+        card.style.cursor = "pointer";
+        card.addEventListener("click", () => openCompletedModal({ task, listId, listName }));
+        const titleSpan = document.createElement("div");
+        titleSpan.className = "task-title";
+        titleSpan.textContent = task.title;
+        const meta = document.createElement("div");
+        meta.className = "completed-meta";
+        meta.innerHTML = '<span>' + escapeHtml(listName) + '</span>';
+        const d = new Date(task.completedDateTime.dateTime + "Z");
+        meta.innerHTML += '<span>' + d.getDate() + '/' + (d.getMonth()+1) + '</span>';
+        card.appendChild(titleSpan);
+        card.appendChild(meta);
+        container.appendChild(card);
+    });
+}
+
+function openCompletedModal(item) {
+    const { task, listId, listName } = item;
+    const existing = document.querySelector(".modal-overlay");
+    if (existing) existing.remove();
+
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+    const modal = document.createElement("div");
+    modal.className = "modal";
+
+    const dueVal = task.dueDateTime ? formatDateForInput(new Date(task.dueDateTime.dateTime + "Z")) : "";
+    modal.innerHTML = '<h2>Tâche complétée</h2>'
+        + '<label>Titre</label>'
+        + '<input type="text" id="modal-c-title" value="' + escapeHtml(task.title) + '">'
+        + '<label>Date d\'échéance</label>'
+        + '<input type="date" id="modal-c-date" value="' + dueVal + '">'
+        + '<label>Importance</label>'
+        + '<select id="modal-c-importance">'
+        + '<option value="low"' + (task.importance === "low" ? " selected" : "") + '>Basse</option>'
+        + '<option value="normal"' + (task.importance === "normal" ? " selected" : "") + '>Normale</option>'
+        + '<option value="high"' + (task.importance === "high" ? " selected" : "") + '>Haute</option>'
+        + '</select>'
+        + '<div class="modal-actions">'
+        + '<button class="modal-btn danger" id="modal-c-delete">Supprimer</button>'
+        + '<div style="display:flex;gap:8px;">'
+        + '<button class="modal-btn secondary" onclick="this.closest(\'.modal-overlay\').remove()">Fermer</button>'
+        + '<button class="modal-btn primary" id="modal-c-reopen">Réouvrir</button>'
+        + '</div></div>';
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    document.getElementById("modal-c-reopen").addEventListener("click", async () => {
+        const newTitle = document.getElementById("modal-c-title").value.trim();
+        const newDate = document.getElementById("modal-c-date").value;
+        const newImportance = document.getElementById("modal-c-importance").value;
+        const updates = { status: "notStarted", title: newTitle, importance: newImportance };
+        if (newDate) {
+            updates.dueDateTime = { dateTime: formatDateForGraph(new Date(newDate)), timeZone: "UTC" };
+        } else {
+            updates.dueDateTime = null;
+        }
+        try {
+            await updateTask(listId, task.id, updates);
+            overlay.remove();
+            await loadAndRenderTasks();
+            loadCompletedTasks();
+            showToast("Tâche réouverte !");
+        } catch (err) {
+            console.error("Reopen failed:", err);
+            showToast("Impossible de réouvrir.", true);
+        }
+    });
+
+    document.getElementById("modal-c-delete").addEventListener("click", async () => {
+        if (!confirm("Supprimer cette tâche définitivement ?")) return;
+        try {
+            await deleteTask(listId, task.id);
+            overlay.remove();
+            loadCompletedTasks();
+            showToast("Tâche supprimée.");
+        } catch (err) {
+            console.error("Delete failed:", err);
+            showToast("Impossible de supprimer.", true);
+        }
+    });
+}
+
 // ===== RENDERING =====
 let allTasks = [];
 let allLists = [];
@@ -478,16 +759,27 @@ let allLists = [];
 async function loadAndRenderTasks() {
     try {
         allLists = await fetchLists();
+        console.log("Loaded " + allLists.length + " lists:", allLists.map(l => l.displayName));
         allTasks = [];
+        const failedLists = [];
         for (const list of allLists) {
-            const tasks = await fetchTasks(list.id);
-            const color = getListColor(list.displayName);
-            for (const task of tasks) {
-                allTasks.push({ task, listId: list.id, listName: list.displayName, color });
+            if (hiddenLists.includes(list.id)) continue;
+            try {
+                const tasks = await fetchTasks(list.id);
+                const color = getListColor(list.displayName);
+                for (const task of tasks) {
+                    allTasks.push({ task, listId: list.id, listName: list.displayName, color });
+                }
+            } catch (listErr) {
+                console.warn("Impossible de charger la liste '" + list.displayName + "':", listErr);
+                failedLists.push(list.displayName);
             }
         }
         renderDashboard();
         updateLastRefresh();
+        if (failedLists.length > 0) {
+            showToast("Listes inaccessibles : " + failedLists.join(", "), true);
+        }
     } catch (err) {
         console.error("Failed to load tasks:", err);
         showToast("Impossible de charger les tâches.", true);
@@ -686,9 +978,11 @@ function openEditModal(item) {
         + '<label>Liste</label>'
         + '<select id="modal-list">' + allLists.map(l => '<option value="' + l.id + '"' + (l.id === listId ? " selected" : "") + '>' + escapeHtml(l.displayName) + '</option>').join("") + '</select>'
         + '<div class="modal-actions">'
+        + '<button class="modal-btn danger" id="modal-delete">Supprimer</button>'
+        + '<div style="display:flex;gap:8px;">'
         + '<button class="modal-btn secondary" onclick="this.closest(\'.modal-overlay\').remove()">Annuler</button>'
         + '<button class="modal-btn primary" id="modal-save">Enregistrer</button>'
-        + '</div>';
+        + '</div></div>';
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
@@ -721,6 +1015,19 @@ function openEditModal(item) {
         } catch (err) {
             console.error("Update failed:", err);
             showToast("Erreur lors de la mise à jour.", true);
+        }
+    });
+
+    document.getElementById("modal-delete").addEventListener("click", async () => {
+        if (!confirm("Supprimer cette tâche définitivement ?")) return;
+        try {
+            await deleteTask(listId, task.id);
+            overlay.remove();
+            await loadAndRenderTasks();
+            showToast("Tâche supprimée.");
+        } catch (err) {
+            console.error("Delete failed:", err);
+            showToast("Impossible de supprimer la tâche.", true);
         }
     });
 }
