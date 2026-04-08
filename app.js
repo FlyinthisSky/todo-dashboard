@@ -64,15 +64,29 @@ function escapeHtml(str) {
 }
 
 // ===== GRAPH API =====
+async function graphFetchWithRetry(url, options = {}, maxRetries = 3) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const token = await getAccessToken();
+        const r = await fetch(url, { ...options, headers: { Authorization: "Bearer " + token, ...options.headers } });
+        if (r.status === 429) {
+            const retryAfter = parseInt(r.headers.get("Retry-After") || "0", 10);
+            const delay = Math.max(retryAfter, 1) * 1000 + attempt * 500;
+            if (attempt < maxRetries) {
+                console.warn("429 rate limited, retry " + (attempt + 1) + " in " + delay + "ms: " + url.split("?")[0]);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+        }
+        return r;
+    }
+}
 async function graphGet(url) {
-    const token = await getAccessToken();
-    const r = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+    const r = await graphFetchWithRetry(url);
     if (!r.ok) throw new Error("Graph API error: " + r.status);
     return r.json();
 }
 async function graphPatch(url, body) {
-    const token = await getAccessToken();
-    const r = await fetch(url, { method: "PATCH", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const r = await graphFetchWithRetry(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error("Graph PATCH error: " + r.status);
     return r.json();
 }
@@ -87,13 +101,11 @@ async function graphGetAll(url) {
     return results;
 }
 async function graphDelete(url) {
-    const token = await getAccessToken();
-    const r = await fetch(url, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+    const r = await graphFetchWithRetry(url, { method: "DELETE" });
     if (!r.ok) throw new Error("Graph DELETE error: " + r.status);
 }
 async function graphPost(url, body) {
-    const token = await getAccessToken();
-    const r = await fetch(url, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const r = await graphFetchWithRetry(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error("Graph POST error: " + r.status);
     return r.json();
 }
