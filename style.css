@@ -128,7 +128,7 @@ body::before {
 }
 
 /* ===== WEEK GRID ===== */
-.week-grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; overflow: hidden; }
+.week-grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; overflow: hidden; min-height: 0; }
 
 .day-column {
     background: var(--bg-column); border-radius: var(--radius-column);
@@ -463,6 +463,10 @@ body::before {
 .month-task-pill:hover { transform: scale(1.02); }
 .month-task-pill.overdue { box-shadow: 0 0 0 1.5px #FF6B6B; }
 .month-task-pill.dragging { opacity: 0.4; }
+.month-more-indicator {
+    font-size: 0.6rem; color: var(--text-muted); font-weight: 600;
+    padding: 1px 4px; cursor: default;
+}
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1023px) { .inbox { width: 150px; min-width: 150px; } }
