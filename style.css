@@ -268,8 +268,19 @@ body::before {
 }
 .tag-hex-input:focus { outline: none; border-color: rgba(212,165,116,0.5); }
 .tag-hex-input.invalid { border-color: #e17055; }
-.tag-panel-item span {
-    font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
+.tag-name-input {
+    flex: 1; min-width: 0; padding: 3px 6px; font-size: 0.8rem; font-weight: 600;
+    color: var(--text-secondary); background: transparent;
+    border: 1.5px solid transparent; border-radius: 4px;
+    font-family: inherit; transition: border-color 0.2s, background 0.2s;
+}
+.tag-name-input:hover { border-color: rgba(212,165,116,0.2); }
+.tag-name-input:focus {
+    outline: none; border-color: rgba(212,165,116,0.5);
+    background: var(--bg-card);
+}
+.tag-name-input.renaming {
+    opacity: 0.5; cursor: wait;
 }
 .tag-panel-empty {
     color: var(--text-muted); font-size: 0.8rem; font-style: italic;
