@@ -1,0 +1,22 @@
+{
+  "lists": {
+    "ménage":       { "gradient": "linear-gradient(135deg, #FDFD96, #f0e68c)", "text": "#333" },
+    "menage":       { "gradient": "linear-gradient(135deg, #FDFD96, #f0e68c)", "text": "#333" },
+    "boulot":       { "gradient": "linear-gradient(135deg, #FF6B6B, #ee5a5a)", "text": "#fff" },
+    "courses":      { "gradient": "linear-gradient(135deg, #55efc4, #00b894)", "text": "#1a1a2e" },
+    "course":       { "gradient": "linear-gradient(135deg, #55efc4, #00b894)", "text": "#1a1a2e" },
+    "projet perso": { "gradient": "linear-gradient(135deg, #48dbfb, #0abde3)", "text": "#fff" },
+    "sortie":       { "gradient": "linear-gradient(135deg, #a29bfe, #6c5ce7)", "text": "#fff" }
+  },
+  "extras": [
+    { "gradient": "linear-gradient(135deg, #ffa502, #e67e22)", "text": "#fff" },
+    { "gradient": "linear-gradient(135deg, #fd79a8, #e84393)", "text": "#fff" },
+    { "gradient": "linear-gradient(135deg, #fdcb6e, #f39c12)", "text": "#333" },
+    { "gradient": "linear-gradient(135deg, #74b9ff, #0984e3)", "text": "#fff" },
+    { "gradient": "linear-gradient(135deg, #dfe6e9, #b2bec3)", "text": "#333" }
+  ],
+  "projects": [
+    "#e17055", "#00cec9", "#fdcb6e", "#6c5ce7", "#e84393",
+    "#00b894", "#0984e3", "#d63031", "#ffeaa7", "#a29bfe"
+  ]
+}
