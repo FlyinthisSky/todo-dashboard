@@ -875,7 +875,8 @@ function renderMonthGrid(container, visibleTasks, today) {
             return isSameDay(due, day);
         });
 
-        dayTasks.forEach(item => {
+        const maxPills = 3;
+        dayTasks.slice(0, maxPills).forEach(item => {
             const pill = document.createElement("div");
             pill.className = "month-task-pill";
             const tags = extractProjectTags(item.task.title);
@@ -901,6 +902,12 @@ function renderMonthGrid(container, visibleTasks, today) {
             pill.addEventListener("dragend", () => pill.classList.remove("dragging"));
             cell.appendChild(pill);
         });
+        if (dayTasks.length > maxPills) {
+            const more = document.createElement("div");
+            more.className = "month-more-indicator";
+            more.textContent = "+" + (dayTasks.length - maxPills) + " autre" + (dayTasks.length - maxPills > 1 ? "s" : "");
+            cell.appendChild(more);
+        }
 
         // Click on empty area to create task on that day
         cell.addEventListener("click", (e) => {
