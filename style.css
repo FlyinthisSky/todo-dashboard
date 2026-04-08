@@ -121,7 +121,6 @@ body::before {
     width: 200px; min-width: 200px; background: var(--bg-column);
     border-radius: var(--radius-column); padding: 14px;
     display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
-    min-height: 0; max-height: 100%;
 }
 .inbox .column-header {
     font-size: 0.85rem; font-weight: 700; color: var(--accent-warm);
@@ -129,7 +128,7 @@ body::before {
 }
 
 /* ===== WEEK GRID ===== */
-.week-grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; overflow: hidden; min-height: 0; }
+.week-grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; overflow: hidden; }
 
 .day-column {
     background: var(--bg-column); border-radius: var(--radius-column);
@@ -422,10 +421,8 @@ body::before {
 /* ===== MONTH VIEW ===== */
 .week-grid.month-view {
     grid-template-columns: repeat(7, 1fr);
-    grid-auto-rows: auto;
-    overflow: hidden auto;
-    height: 0;
-    flex: 1 1 0;
+    grid-auto-rows: 1fr;
+    overflow-y: auto;
 }
 .month-day-header {
     text-align: center; font-weight: 700; color: var(--accent-warm);
