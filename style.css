@@ -422,7 +422,9 @@ body::before {
 .week-grid.month-view {
     grid-template-columns: repeat(7, 1fr);
     grid-auto-rows: auto;
-    overflow-y: auto;
+    overflow: hidden auto;
+    height: 0;
+    flex: 1 1 0;
 }
 .month-day-header {
     text-align: center; font-weight: 700; color: var(--accent-warm);

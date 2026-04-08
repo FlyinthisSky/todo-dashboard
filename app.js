@@ -569,24 +569,19 @@ async function loadCompletedTasks() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Fetch all lists in parallel instead of sequentially
-    const results = await Promise.allSettled(
-        allLists.map(async (list) => {
+    for (const list of allLists) {
+        try {
             const tasks = await fetchCompletedTasks(list.id);
-            return { tasks, listId: list.id, listName: list.displayName };
-        })
-    );
-
-    for (const result of results) {
-        if (result.status !== "fulfilled") continue;
-        const { tasks, listId, listName } = result.value;
-        for (const task of tasks) {
-            if (task.completedDateTime) {
-                const completedDate = new Date(task.completedDateTime.dateTime + "Z");
-                if (completedDate >= thirtyDaysAgo) {
-                    completedTasks.push({ task, listId, listName, completedDate });
+            for (const task of tasks) {
+                if (task.completedDateTime) {
+                    const completedDate = new Date(task.completedDateTime.dateTime + "Z");
+                    if (completedDate >= thirtyDaysAgo) {
+                        completedTasks.push({ task, listId: list.id, listName: list.displayName, completedDate });
+                    }
                 }
             }
+        } catch (err) {
+            console.warn("Impossible de charger les complétées de '" + list.displayName + "':", err);
         }
     }
 
@@ -754,26 +749,18 @@ async function loadAndRenderTasks() {
         allTasks = [];
         const failedLists = [];
 
-        // Fetch all lists in parallel instead of sequentially
-        const results = await Promise.allSettled(
-            allLists.map(async (list) => {
+        for (const list of allLists) {
+            try {
                 const tasks = await fetchTasks(list.id);
-                return { tasks, listId: list.id, listName: list.displayName };
-            })
-        );
-
-        results.forEach((result, i) => {
-            if (result.status === "fulfilled") {
-                const { tasks, listId, listName } = result.value;
-                const color = getListColor(listName);
+                const color = getListColor(list.displayName);
                 for (const task of tasks) {
-                    allTasks.push({ task, listId, listName, color });
+                    allTasks.push({ task, listId: list.id, listName: list.displayName, color });
                 }
-            } else {
-                console.warn("Impossible de charger la liste '" + allLists[i].displayName + "':", result.reason);
-                failedLists.push(allLists[i].displayName);
+            } catch (err) {
+                console.warn("Impossible de charger la liste '" + list.displayName + "':", err);
+                failedLists.push(list.displayName);
             }
-        });
+        }
 
         renderDashboard();
         updateLastRefresh();
