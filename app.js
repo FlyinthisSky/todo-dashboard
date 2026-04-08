@@ -337,15 +337,43 @@ function renderTagPanel() {
         const colorInput = document.createElement("input");
         colorInput.type = "color";
         colorInput.value = getProjectColor(tag);
+
+        const hexInput = document.createElement("input");
+        hexInput.type = "text";
+        hexInput.className = "tag-hex-input";
+        hexInput.value = getProjectColor(tag).toUpperCase();
+        hexInput.maxLength = 7;
+        hexInput.spellcheck = false;
+
         colorInput.addEventListener("input", () => {
             setProjectColor(tag, colorInput.value);
+            hexInput.value = colorInput.value.toUpperCase();
             renderDashboard();
+        });
+
+        hexInput.addEventListener("input", () => {
+            let v = hexInput.value.trim();
+            if (!v.startsWith("#")) v = "#" + v;
+            if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
+                colorInput.value = v;
+                setProjectColor(tag, v);
+                hexInput.classList.remove("invalid");
+                renderDashboard();
+            } else {
+                hexInput.classList.add("invalid");
+            }
+        });
+
+        hexInput.addEventListener("blur", () => {
+            hexInput.value = getProjectColor(tag).toUpperCase();
+            hexInput.classList.remove("invalid");
         });
 
         const label = document.createElement("span");
         label.textContent = tag;
 
         item.appendChild(colorInput);
+        item.appendChild(hexInput);
         item.appendChild(label);
         panel.appendChild(item);
     });

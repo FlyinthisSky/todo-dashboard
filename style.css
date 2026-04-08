@@ -260,6 +260,14 @@ body::before {
 }
 .tag-panel-item input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
 .tag-panel-item input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+.tag-hex-input {
+    width: 72px; padding: 3px 6px; font-size: 0.75rem; font-family: monospace;
+    background: var(--bg-card); color: var(--text-primary);
+    border: 1.5px solid rgba(212,165,116,0.2); border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+.tag-hex-input:focus { outline: none; border-color: rgba(212,165,116,0.5); }
+.tag-hex-input.invalid { border-color: #e17055; }
 .tag-panel-item span {
     font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
 }
