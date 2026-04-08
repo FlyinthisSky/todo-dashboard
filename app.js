@@ -667,18 +667,28 @@ async function loadAndRenderTasks() {
         console.log("Loaded " + allLists.length + " lists:", allLists.map(l => l.displayName));
         allTasks = [];
         const failedLists = [];
-        for (const list of allLists) {
-            try {
+
+        // Fetch all lists in parallel instead of sequentially
+        const results = await Promise.allSettled(
+            allLists.map(async (list) => {
                 const tasks = await fetchTasks(list.id);
-                const color = getListColor(list.displayName);
+                return { tasks, listId: list.id, listName: list.displayName };
+            })
+        );
+
+        results.forEach((result, i) => {
+            if (result.status === "fulfilled") {
+                const { tasks, listId, listName } = result.value;
+                const color = getListColor(listName);
                 for (const task of tasks) {
-                    allTasks.push({ task, listId: list.id, listName: list.displayName, color });
+                    allTasks.push({ task, listId, listName, color });
                 }
-            } catch (listErr) {
-                console.warn("Impossible de charger la liste '" + list.displayName + "':", listErr);
-                failedLists.push(list.displayName);
+            } else {
+                console.warn("Impossible de charger la liste '" + allLists[i].displayName + "':", result.reason);
+                failedLists.push(allLists[i].displayName);
             }
-        }
+        });
+
         renderDashboard();
         updateLastRefresh();
         if (failedLists.length > 0) {
@@ -695,7 +705,8 @@ function renderDashboard() {
     const today = new Date(); today.setHours(0,0,0,0);
     const weekGrid = document.getElementById("week-grid");
     weekGrid.innerHTML = "";
-    const visibleTasks = allTasks.filter(({ listId }) => !hiddenLists.includes(listId));
+    const hiddenSet = new Set(hiddenLists);
+    const visibleTasks = allTasks.filter(({ listId }) => !hiddenSet.has(listId));
 
     weekDays.forEach((day) => {
         const col = document.createElement("div");
