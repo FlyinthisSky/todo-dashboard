@@ -483,49 +483,65 @@ async function loadCompletedTasks() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    for (const list of allLists) {
-        try {
+    // Fetch all lists in parallel instead of sequentially
+    const results = await Promise.allSettled(
+        allLists.map(async (list) => {
             const tasks = await fetchCompletedTasks(list.id);
-            for (const task of tasks) {
-                if (task.completedDateTime) {
-                    const completed = new Date(task.completedDateTime.dateTime + "Z");
-                    if (completed >= thirtyDaysAgo) {
-                        completedTasks.push({ task, listId: list.id, listName: list.displayName });
-                    }
+            return { tasks, listId: list.id, listName: list.displayName };
+        })
+    );
+
+    for (const result of results) {
+        if (result.status !== "fulfilled") continue;
+        const { tasks, listId, listName } = result.value;
+        for (const task of tasks) {
+            if (task.completedDateTime) {
+                const completedDate = new Date(task.completedDateTime.dateTime + "Z");
+                if (completedDate >= thirtyDaysAgo) {
+                    completedTasks.push({ task, listId, listName, completedDate });
                 }
             }
-        } catch (e) { /* skip inaccessible lists */ }
+        }
     }
 
-    completedTasks.sort((a, b) => {
-        const da = new Date(a.task.completedDateTime.dateTime + "Z");
-        const db = new Date(b.task.completedDateTime.dateTime + "Z");
-        return db - da;
-    });
+    // Sort using cached date objects
+    completedTasks.sort((a, b) => b.completedDate - a.completedDate);
 
-    const visibleCompleted = completedTasks.filter(({ listId }) => !hiddenLists.includes(listId));
+    const hiddenSet = new Set(hiddenLists);
+    const visibleCompleted = completedTasks.filter(({ listId }) => !hiddenSet.has(listId));
     container.innerHTML = "";
     if (visibleCompleted.length === 0) {
         container.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;font-style:italic;">Aucune tâche complétée</div>';
         return;
     }
-    visibleCompleted.forEach(({ task, listId, listName }) => {
+
+    // Batch DOM operations with DocumentFragment + event delegation
+    const fragment = document.createDocumentFragment();
+    visibleCompleted.forEach(({ task, listName, completedDate }, index) => {
         const card = document.createElement("div");
         card.className = "completed-card";
         card.style.cursor = "pointer";
-        card.addEventListener("click", () => openCompletedModal({ task, listId, listName }));
+        card.dataset.index = index;
         const titleSpan = document.createElement("div");
         titleSpan.className = "task-title";
         titleSpan.textContent = task.title;
         const meta = document.createElement("div");
         meta.className = "completed-meta";
-        meta.innerHTML = '<span>' + escapeHtml(listName) + '</span>';
-        const d = new Date(task.completedDateTime.dateTime + "Z");
-        meta.innerHTML += '<span>' + d.getDate() + '/' + (d.getMonth()+1) + '</span>';
+        meta.innerHTML = '<span>' + escapeHtml(listName) + '</span>'
+            + '<span>' + completedDate.getDate() + '/' + (completedDate.getMonth()+1) + '</span>';
         card.appendChild(titleSpan);
         card.appendChild(meta);
-        container.appendChild(card);
+        fragment.appendChild(card);
     });
+    container.appendChild(fragment);
+
+    // Single delegated click listener instead of one per card
+    container.onclick = (e) => {
+        const card = e.target.closest(".completed-card");
+        if (!card) return;
+        const item = visibleCompleted[parseInt(card.dataset.index)];
+        if (item) openCompletedModal(item);
+    };
 }
 
 function openCompletedModal(item) {
@@ -552,28 +568,71 @@ function openCompletedModal(item) {
         + '<option value="normal"' + (task.importance === "normal" ? " selected" : "") + '>Normale</option>'
         + '<option value="high"' + (task.importance === "high" ? " selected" : "") + '>Haute</option>'
         + '</select>'
+        + '<label>Liste</label>'
+        + '<select id="modal-c-list">' + allLists.map(l => '<option value="' + l.id + '"' + (l.id === listId ? " selected" : "") + '>' + escapeHtml(l.displayName) + '</option>').join("") + '</select>'
         + '<div class="modal-actions">'
         + '<button class="modal-btn danger" id="modal-c-delete">Supprimer</button>'
         + '<div style="display:flex;gap:8px;">'
         + '<button class="modal-btn secondary" onclick="this.closest(\'.modal-overlay\').remove()">Fermer</button>'
+        + '<button class="modal-btn primary" id="modal-c-save">Enregistrer</button>'
         + '<button class="modal-btn primary" id="modal-c-reopen">Réouvrir</button>'
         + '</div></div>';
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    document.getElementById("modal-c-reopen").addEventListener("click", async () => {
+    function getModalValues() {
         const newTitle = document.getElementById("modal-c-title").value.trim();
         const newDate = document.getElementById("modal-c-date").value;
         const newImportance = document.getElementById("modal-c-importance").value;
-        const updates = { status: "notStarted", title: newTitle, importance: newImportance };
-        if (newDate) {
-            updates.dueDateTime = { dateTime: formatDateForGraph(new Date(newDate)), timeZone: "UTC" };
-        } else {
-            updates.dueDateTime = null;
-        }
+        const newListId = document.getElementById("modal-c-list").value;
+        const dueDateTime = newDate
+            ? { dateTime: formatDateForGraph(new Date(newDate)), timeZone: "UTC" }
+            : null;
+        return { newTitle, newDate, newImportance, newListId, dueDateTime };
+    }
+
+    async function moveTaskToList(vals, status) {
+        const taskData = { title: vals.newTitle, status, importance: vals.newImportance };
+        if (vals.newDate) taskData.dueDateTime = vals.dueDateTime;
+        if (task.body?.content) taskData.body = { content: task.body.content, contentType: "text" };
+        await graphPost(GRAPH_BASE + "/me/todo/lists/" + vals.newListId + "/tasks", taskData);
+        await deleteTask(listId, task.id);
+    }
+
+    // Save changes (keep completed, optionally move list)
+    document.getElementById("modal-c-save").addEventListener("click", async () => {
+        const vals = getModalValues();
         try {
-            await updateTask(listId, task.id, updates);
+            if (vals.newListId !== listId) {
+                await moveTaskToList(vals, "completed");
+            } else {
+                await updateTask(listId, task.id, {
+                    title: vals.newTitle, importance: vals.newImportance,
+                    dueDateTime: vals.dueDateTime,
+                });
+            }
+            overlay.remove();
+            loadCompletedTasks();
+            showToast("Tâche mise à jour !");
+        } catch (err) {
+            console.error("Save completed task failed:", err);
+            showToast("Impossible de mettre à jour.", true);
+        }
+    });
+
+    // Reopen task (optionally in a different list)
+    document.getElementById("modal-c-reopen").addEventListener("click", async () => {
+        const vals = getModalValues();
+        try {
+            if (vals.newListId !== listId) {
+                await moveTaskToList(vals, "notStarted");
+            } else {
+                await updateTask(listId, task.id, {
+                    status: "notStarted", title: vals.newTitle,
+                    importance: vals.newImportance, dueDateTime: vals.dueDateTime,
+                });
+            }
             overlay.remove();
             await loadAndRenderTasks();
             loadCompletedTasks();
@@ -608,18 +667,28 @@ async function loadAndRenderTasks() {
         console.log("Loaded " + allLists.length + " lists:", allLists.map(l => l.displayName));
         allTasks = [];
         const failedLists = [];
-        for (const list of allLists) {
-            try {
+
+        // Fetch all lists in parallel instead of sequentially
+        const results = await Promise.allSettled(
+            allLists.map(async (list) => {
                 const tasks = await fetchTasks(list.id);
-                const color = getListColor(list.displayName);
+                return { tasks, listId: list.id, listName: list.displayName };
+            })
+        );
+
+        results.forEach((result, i) => {
+            if (result.status === "fulfilled") {
+                const { tasks, listId, listName } = result.value;
+                const color = getListColor(listName);
                 for (const task of tasks) {
-                    allTasks.push({ task, listId: list.id, listName: list.displayName, color });
+                    allTasks.push({ task, listId, listName, color });
                 }
-            } catch (listErr) {
-                console.warn("Impossible de charger la liste '" + list.displayName + "':", listErr);
-                failedLists.push(list.displayName);
+            } else {
+                console.warn("Impossible de charger la liste '" + allLists[i].displayName + "':", result.reason);
+                failedLists.push(allLists[i].displayName);
             }
-        }
+        });
+
         renderDashboard();
         updateLastRefresh();
         if (failedLists.length > 0) {
@@ -636,7 +705,8 @@ function renderDashboard() {
     const today = new Date(); today.setHours(0,0,0,0);
     const weekGrid = document.getElementById("week-grid");
     weekGrid.innerHTML = "";
-    const visibleTasks = allTasks.filter(({ listId }) => !hiddenLists.includes(listId));
+    const hiddenSet = new Set(hiddenLists);
+    const visibleTasks = allTasks.filter(({ listId }) => !hiddenSet.has(listId));
 
     weekDays.forEach((day) => {
         const col = document.createElement("div");
