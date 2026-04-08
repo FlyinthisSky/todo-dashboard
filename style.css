@@ -59,7 +59,7 @@ body::before {
 #login-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(212,165,116,0.4); }
 
 /* ===== DASHBOARD ===== */
-#dashboard { display: none; flex-direction: column; min-height: 100vh; position: relative; z-index: 1; }
+#dashboard { display: none; flex-direction: column; height: 100vh; position: relative; z-index: 1; }
 
 .header {
     display: flex; align-items: center; justify-content: space-between;
