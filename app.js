@@ -31,6 +31,7 @@ async function onAuthenticated() {
     showLoading(true);
     await loadAndRenderTasks();
     showLoading(false);
+    updateNavLabel();
     startAutoRefresh();
 }
 
@@ -265,6 +266,9 @@ async function renameTag(oldTag, newTag) {
 
 // ===== DATE UTILITIES =====
 const DAY_NAMES = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+const MONTH_NAMES = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+let weekOffset = 0;
+let viewMode = "week"; // "week" or "month"
 
 function getMonday(date) {
     const d = new Date(date);
@@ -275,7 +279,77 @@ function getMonday(date) {
 }
 function getWeekDays() {
     const monday = getMonday(new Date());
+    monday.setDate(monday.getDate() + weekOffset * 7);
     return Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
+}
+function getViewMonth() {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + weekOffset);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+function getMonthDays(refDate) {
+    const year = refDate.getFullYear(), month = refDate.getMonth();
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month + 1, 0);
+    // Start on Monday of the week containing the 1st
+    const start = getMonday(first);
+    // End on Sunday of the week containing the last day
+    const end = new Date(last);
+    const endDay = end.getDay();
+    if (endDay !== 0) end.setDate(end.getDate() + (7 - endDay));
+    end.setHours(0, 0, 0, 0);
+    const days = [];
+    const cur = new Date(start);
+    while (cur <= end) { days.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
+    return days;
+}
+function navigatePrev() {
+    weekOffset--;
+    renderDashboard();
+    updateNavLabel();
+}
+function navigateNext() {
+    weekOffset++;
+    renderDashboard();
+    updateNavLabel();
+}
+function navigateToday() {
+    weekOffset = 0;
+    renderDashboard();
+    updateNavLabel();
+}
+function switchView(mode) {
+    viewMode = mode;
+    weekOffset = 0;
+    document.querySelectorAll(".view-btn").forEach(b => b.classList.remove("active"));
+    const btn = document.querySelector('.view-btn[data-view="' + mode + '"]');
+    if (btn) btn.classList.add("active");
+    renderDashboard();
+    updateNavLabel();
+}
+function updateNavLabel() {
+    const label = document.getElementById("nav-label");
+    if (!label) return;
+    if (viewMode === "week") {
+        const days = getWeekDays();
+        const start = days[0], end = days[6];
+        const opts = { day: "numeric", month: "short" };
+        if (start.getFullYear() !== end.getFullYear()) {
+            label.textContent = start.toLocaleDateString("fr-FR", { ...opts, year: "numeric" }) + " — " + end.toLocaleDateString("fr-FR", { ...opts, year: "numeric" });
+        } else if (start.getMonth() !== end.getMonth()) {
+            label.textContent = start.toLocaleDateString("fr-FR", opts) + " — " + end.toLocaleDateString("fr-FR", opts) + " " + end.getFullYear();
+        } else {
+            label.textContent = start.getDate() + " — " + end.toLocaleDateString("fr-FR", opts) + " " + end.getFullYear();
+        }
+    } else {
+        const ref = getViewMonth();
+        label.textContent = MONTH_NAMES[ref.getMonth()] + " " + ref.getFullYear();
+    }
+    // Show/hide "Aujourd'hui" button
+    const todayBtn = document.getElementById("nav-today-btn");
+    if (todayBtn) todayBtn.style.display = weekOffset === 0 ? "none" : "";
 }
 function isSameDay(d1, d2) {
     return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
@@ -701,13 +775,42 @@ async function loadAndRenderTasks() {
 }
 
 function renderDashboard() {
-    const weekDays = getWeekDays();
-    const today = new Date(); today.setHours(0,0,0,0);
     const weekGrid = document.getElementById("week-grid");
     weekGrid.innerHTML = "";
     const hiddenSet = new Set(hiddenLists);
     const visibleTasks = allTasks.filter(({ listId }) => !hiddenSet.has(listId));
+    const today = new Date(); today.setHours(0,0,0,0);
 
+    if (viewMode === "month") {
+        weekGrid.className = "week-grid month-view";
+        renderMonthGrid(weekGrid, visibleTasks, today);
+    } else {
+        weekGrid.className = "week-grid";
+        renderWeekGrid(weekGrid, visibleTasks, today);
+    }
+
+    // Inbox
+    const inboxContainer = document.getElementById("inbox-tasks");
+    inboxContainer.innerHTML = "";
+    const inboxCol = document.getElementById("inbox-column");
+    inboxCol.dataset.date = "inbox";
+    setupDropZone(inboxCol);
+
+    const inboxTasks = visibleTasks.filter(({ task }) => !task.dueDateTime);
+    if (inboxTasks.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty-msg";
+        empty.textContent = "Rien en attente";
+        inboxContainer.appendChild(empty);
+    } else {
+        inboxTasks.forEach(item => inboxContainer.appendChild(createTaskCard(item)));
+    }
+
+    updateNavLabel();
+}
+
+function renderWeekGrid(container, visibleTasks, today) {
+    const weekDays = getWeekDays();
     weekDays.forEach((day) => {
         const col = document.createElement("div");
         col.className = "day-column" + (isSameDay(day, today) ? " today" : "");
@@ -737,25 +840,77 @@ function renderDashboard() {
         } else {
             dayTasks.forEach(item => col.appendChild(createTaskCard(item)));
         }
-        weekGrid.appendChild(col);
+        container.appendChild(col);
+    });
+}
+
+function renderMonthGrid(container, visibleTasks, today) {
+    const refDate = getViewMonth();
+    const currentMonth = refDate.getMonth();
+    const days = getMonthDays(refDate);
+
+    // Day-of-week headers
+    ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].forEach(name => {
+        const hdr = document.createElement("div");
+        hdr.className = "month-day-header";
+        hdr.textContent = name;
+        container.appendChild(hdr);
     });
 
-    // Inbox
-    const inboxContainer = document.getElementById("inbox-tasks");
-    inboxContainer.innerHTML = "";
-    const inboxCol = document.getElementById("inbox-column");
-    inboxCol.dataset.date = "inbox";
-    setupDropZone(inboxCol);
+    days.forEach((day) => {
+        const cell = document.createElement("div");
+        const isCurrentMonth = day.getMonth() === currentMonth;
+        cell.className = "month-cell" + (isSameDay(day, today) ? " today" : "") + (!isCurrentMonth ? " other-month" : "");
+        cell.dataset.date = formatDateForInput(day);
+        setupDropZone(cell);
 
-    const inboxTasks = visibleTasks.filter(({ task }) => !task.dueDateTime);
-    if (inboxTasks.length === 0) {
-        const empty = document.createElement("div");
-        empty.className = "empty-msg";
-        empty.textContent = "Rien en attente";
-        inboxContainer.appendChild(empty);
-    } else {
-        inboxTasks.forEach(item => inboxContainer.appendChild(createTaskCard(item)));
-    }
+        const dateLabel = document.createElement("div");
+        dateLabel.className = "month-cell-date";
+        dateLabel.textContent = day.getDate();
+        cell.appendChild(dateLabel);
+
+        const dayTasks = visibleTasks.filter(({ task }) => {
+            if (!task.dueDateTime) return false;
+            const due = new Date(task.dueDateTime.dateTime + "Z");
+            return isSameDay(due, day);
+        });
+
+        dayTasks.forEach(item => {
+            const pill = document.createElement("div");
+            pill.className = "month-task-pill";
+            const tags = extractProjectTags(item.task.title);
+            if (tags.length > 0) {
+                pill.style.background = getProjectColor(tags[0]);
+                pill.style.color = "#fff";
+            } else {
+                pill.style.background = item.color.gradient;
+                pill.style.color = item.color.text;
+            }
+            if (item.task.dueDateTime) {
+                const due = new Date(item.task.dueDateTime.dateTime + "Z");
+                if (isOverdue(due)) pill.classList.add("overdue");
+            }
+            pill.textContent = item.task.title.replace(/#\w+/g, "").trim();
+            pill.draggable = true;
+            pill.addEventListener("click", (e) => { e.stopPropagation(); openEditModal(item); });
+            pill.addEventListener("dragstart", (e) => {
+                pill.classList.add("dragging");
+                e.dataTransfer.setData("text/plain", JSON.stringify({ taskId: item.task.id, listId: item.listId }));
+                e.dataTransfer.effectAllowed = "move";
+            });
+            pill.addEventListener("dragend", () => pill.classList.remove("dragging"));
+            cell.appendChild(pill);
+        });
+
+        // Click on empty area to create task on that day
+        cell.addEventListener("click", (e) => {
+            if (e.target === cell || e.target === dateLabel) {
+                openCreateModal(formatDateForInput(day));
+            }
+        });
+
+        container.appendChild(cell);
+    });
 }
 
 function createTaskCard(item) {

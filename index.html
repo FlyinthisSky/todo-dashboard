@@ -34,6 +34,18 @@
         <div class="filter-panel" id="filter-panel"></div>
         <div class="tag-panel" id="tag-panel"></div>
     </div>
+    <div class="nav-bar">
+        <div class="nav-left">
+            <button class="nav-btn" onclick="navigatePrev()" title="Précédent">&#8249;</button>
+            <button class="nav-btn" onclick="navigateNext()" title="Suivant">&#8250;</button>
+            <button class="nav-btn nav-today" id="nav-today-btn" onclick="navigateToday()">Aujourd'hui</button>
+            <span class="nav-label" id="nav-label"></span>
+        </div>
+        <div class="nav-right">
+            <button class="view-btn active" data-view="week" onclick="switchView('week')">Semaine</button>
+            <button class="view-btn" data-view="month" onclick="switchView('month')">Mois</button>
+        </div>
+    </div>
     <div class="main">
         <div class="inbox" id="inbox-column">
             <div class="column-header">Inbox</div>
