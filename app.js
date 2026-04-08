@@ -297,9 +297,11 @@ function saveHiddenLists() { localStorage.setItem("hiddenLists", JSON.stringify(
 
 function toggleFilter() {
     const panel = document.getElementById("filter-panel");
+    const wasOpen = panel.classList.contains("open");
     panel.classList.toggle("open");
     document.getElementById("tag-panel").classList.remove("open");
     if (panel.classList.contains("open")) renderFilterPanel();
+    else if (wasOpen) loadAndRenderTasks();
 }
 
 function renderFilterPanel() {
@@ -456,6 +458,7 @@ document.addEventListener("mousedown", (e) => {
         !filterPanel.contains(e.target) &&
         (!headerActions || !headerActions.contains(e.target))) {
         filterPanel.classList.remove("open");
+        loadAndRenderTasks();
     }
     if (tagPanel.classList.contains("open") &&
         !tagPanel.contains(e.target) &&
