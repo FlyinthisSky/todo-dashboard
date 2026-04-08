@@ -744,12 +744,15 @@ function createTaskCard(item) {
         card.appendChild(badge);
     }
 
+    let clickTimer = null;
     card.addEventListener("click", (e) => {
         if (card.classList.contains("completing")) return;
-        openEditModal(item);
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => openEditModal(item), 250);
     });
     card.addEventListener("dblclick", (e) => {
         e.preventDefault();
+        clearTimeout(clickTimer);
         handleComplete(card, listId, task.id);
     });
     card.addEventListener("dragstart", (e) => {
