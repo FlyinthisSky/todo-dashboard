@@ -114,13 +114,14 @@ body::before {
 }
 .view-btn:hover:not(.active) { background: rgba(212,165,116,0.1); }
 
-.main { display: flex; flex: 1; padding: 16px; gap: 12px; overflow: hidden; }
+.main { display: flex; flex: 1; padding: 16px; gap: 12px; overflow: hidden; min-height: 0; }
 
 /* ===== INBOX SIDEBAR ===== */
 .inbox {
     width: 200px; min-width: 200px; background: var(--bg-column);
     border-radius: var(--radius-column); padding: 14px;
     display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
+    min-height: 0; max-height: 100%;
 }
 .inbox .column-header {
     font-size: 0.85rem; font-weight: 700; color: var(--accent-warm);
