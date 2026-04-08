@@ -229,6 +229,40 @@ function getAllKnownTags() {
     return [...tags].sort();
 }
 
+async function renameTag(oldTag, newTag) {
+    oldTag = oldTag.toLowerCase();
+    newTag = newTag.toLowerCase();
+    if (!newTag.startsWith("#")) newTag = "#" + newTag;
+    newTag = newTag.replace(/[^#\w]/g, "");
+    if (newTag === "#" || newTag === oldTag) return;
+
+    // Transfer color from old tag to new tag
+    const color = getProjectColor(oldTag);
+    setProjectColor(newTag, color);
+    delete projectColorMap[oldTag];
+    delete customTagColors[oldTag];
+    saveCustomTagColors();
+
+    // Update all tasks containing the old tag (active + completed)
+    const allKnownTasks = [...allTasks, ...completedTasks];
+    const tasksToUpdate = allKnownTasks.filter(({ task }) =>
+        extractProjectTags(task.title).some(t => t.toLowerCase() === oldTag)
+    );
+
+    const promises = tasksToUpdate.map(({ task, listId }) => {
+        const newTitle = task.title.replace(
+            new RegExp(oldTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi"),
+            newTag
+        );
+        task.title = newTitle;
+        return updateTask(listId, task.id, { title: newTitle });
+    });
+
+    await Promise.all(promises);
+    renderDashboard();
+    renderTagPanel();
+}
+
 // ===== DATE UTILITIES =====
 const DAY_NAMES = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
@@ -369,12 +403,45 @@ function renderTagPanel() {
             hexInput.classList.remove("invalid");
         });
 
-        const label = document.createElement("span");
-        label.textContent = tag;
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "tag-name-input";
+        nameInput.value = tag;
+        nameInput.spellcheck = false;
+
+        let renaming = false;
+        nameInput.addEventListener("keydown", async (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                nameInput.blur();
+            }
+            if (e.key === "Escape") {
+                nameInput.value = tag;
+                nameInput.blur();
+            }
+        });
+        nameInput.addEventListener("blur", async () => {
+            const newVal = nameInput.value.trim().toLowerCase().replace(/[^#\w]/g, "");
+            if (renaming || !newVal || newVal === tag) {
+                nameInput.value = tag;
+                return;
+            }
+            renaming = true;
+            nameInput.disabled = true;
+            nameInput.classList.add("renaming");
+            try {
+                await renameTag(tag, newVal);
+            } catch (err) {
+                nameInput.value = tag;
+                nameInput.classList.remove("renaming");
+                nameInput.disabled = false;
+            }
+            renaming = false;
+        });
 
         item.appendChild(colorInput);
         item.appendChild(hexInput);
-        item.appendChild(label);
+        item.appendChild(nameInput);
         panel.appendChild(item);
     });
 }
