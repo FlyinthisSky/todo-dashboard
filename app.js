@@ -390,6 +390,35 @@ let hiddenTags = JSON.parse(localStorage.getItem("hiddenTags") || "[]");
 
 function saveHiddenTags() { localStorage.setItem("hiddenTags", JSON.stringify(hiddenTags)); }
 
+// ===== TASK ORDER (per-day reordering) =====
+let taskOrder = JSON.parse(localStorage.getItem("taskOrder") || "{}");
+
+function saveTaskOrder() {
+    localStorage.setItem("taskOrder", JSON.stringify(taskOrder));
+}
+
+function getOrderedTasks(dayTasks, dateKey) {
+    const order = taskOrder[dateKey];
+    if (!order) return dayTasks;
+    const orderMap = new Map(order.map((id, idx) => [id, idx]));
+    const ordered = [...dayTasks];
+    ordered.sort((a, b) => {
+        const posA = orderMap.has(a.task.id) ? orderMap.get(a.task.id) : Infinity;
+        const posB = orderMap.has(b.task.id) ? orderMap.get(b.task.id) : Infinity;
+        return posA - posB;
+    });
+    return ordered;
+}
+
+function getDropIndex(container, y) {
+    const cards = [...container.querySelectorAll(".task-card:not(.dragging)")];
+    for (let i = 0; i < cards.length; i++) {
+        const rect = cards[i].getBoundingClientRect();
+        if (y < rect.top + rect.height / 2) return i;
+    }
+    return cards.length;
+}
+
 function toggleTagFilter() {
     const panel = document.getElementById("tag-filter-panel");
     const wasOpen = panel.classList.contains("open");
@@ -912,7 +941,7 @@ function renderDashboard() {
         empty.textContent = "Rien en attente";
         inboxContainer.appendChild(empty);
     } else {
-        inboxTasks.forEach(item => inboxContainer.appendChild(createTaskCard(item)));
+        getOrderedTasks(inboxTasks, "inbox").forEach(item => inboxContainer.appendChild(createTaskCard(item)));
     }
 
     updateNavLabel();
@@ -947,7 +976,7 @@ function renderWeekGrid(container, visibleTasks, today) {
             empty.textContent = "Rien de prévu";
             col.appendChild(empty);
         } else {
-            dayTasks.forEach(item => col.appendChild(createTaskCard(item)));
+            getOrderedTasks(dayTasks, formatDateForInput(day)).forEach(item => col.appendChild(createTaskCard(item)));
         }
         container.appendChild(col);
     });
@@ -984,8 +1013,9 @@ function renderMonthGrid(container, visibleTasks, today) {
             return isSameDay(due, day);
         });
 
+        const orderedDayTasks = getOrderedTasks(dayTasks, formatDateForInput(day));
         const maxPills = 3;
-        dayTasks.slice(0, maxPills).forEach(item => {
+        orderedDayTasks.slice(0, maxPills).forEach(item => {
             const pill = document.createElement("div");
             pill.className = "month-task-pill";
             const tags = extractProjectTags(item.task.title);
@@ -1005,16 +1035,17 @@ function renderMonthGrid(container, visibleTasks, today) {
             pill.addEventListener("click", (e) => { e.stopPropagation(); openEditModal(item); });
             pill.addEventListener("dragstart", (e) => {
                 pill.classList.add("dragging");
-                e.dataTransfer.setData("text/plain", JSON.stringify({ taskId: item.task.id, listId: item.listId }));
+                const sourceDate = pill.closest("[data-date]")?.dataset.date || "";
+                e.dataTransfer.setData("text/plain", JSON.stringify({ taskId: item.task.id, listId: item.listId, sourceDate: sourceDate }));
                 e.dataTransfer.effectAllowed = "move";
             });
             pill.addEventListener("dragend", () => pill.classList.remove("dragging"));
             cell.appendChild(pill);
         });
-        if (dayTasks.length > maxPills) {
+        if (orderedDayTasks.length > maxPills) {
             const more = document.createElement("div");
             more.className = "month-more-indicator";
-            more.textContent = "+" + (dayTasks.length - maxPills) + " autre" + (dayTasks.length - maxPills > 1 ? "s" : "");
+            more.textContent = "+" + (orderedDayTasks.length - maxPills) + " autre" + (orderedDayTasks.length - maxPills > 1 ? "s" : "");
             cell.appendChild(more);
         }
 
@@ -1098,7 +1129,8 @@ function createTaskCard(item) {
     });
     card.addEventListener("dragstart", (e) => {
         card.classList.add("dragging");
-        e.dataTransfer.setData("text/plain", JSON.stringify({ taskId: task.id, listId: listId }));
+        const sourceDate = card.closest("[data-date]")?.dataset.date || "";
+        e.dataTransfer.setData("text/plain", JSON.stringify({ taskId: task.id, listId: listId, sourceDate: sourceDate }));
         e.dataTransfer.effectAllowed = "move";
     });
     card.addEventListener("dragend", () => card.classList.remove("dragging"));
@@ -1107,29 +1139,84 @@ function createTaskCard(item) {
 }
 
 // ===== DRAG & DROP =====
+function removeDropIndicator(container) {
+    const existing = container.querySelector(".drop-indicator");
+    if (existing) existing.remove();
+}
+
+function showDropIndicator(container, y) {
+    removeDropIndicator(container);
+    const cards = [...container.querySelectorAll(".task-card:not(.dragging)")];
+    if (cards.length === 0) return;
+    const indicator = document.createElement("div");
+    indicator.className = "drop-indicator";
+    const idx = getDropIndex(container, y);
+    if (idx < cards.length) {
+        cards[idx].before(indicator);
+    } else {
+        cards[cards.length - 1].after(indicator);
+    }
+}
+
 function setupDropZone(el) {
-    el.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; el.classList.add("drag-over"); });
+    el.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        el.classList.add("drag-over");
+        showDropIndicator(el, e.clientY);
+    });
     el.addEventListener("dragleave", (e) => {
-        if (!el.contains(e.relatedTarget)) el.classList.remove("drag-over");
+        if (!el.contains(e.relatedTarget)) {
+            el.classList.remove("drag-over");
+            removeDropIndicator(el);
+        }
     });
     el.addEventListener("drop", async (e) => {
         e.preventDefault();
         el.classList.remove("drag-over");
+        removeDropIndicator(el);
         try {
             const data = JSON.parse(e.dataTransfer.getData("text/plain"));
             const targetDate = el.dataset.date;
-            let updates = {};
-            if (targetDate === "inbox") {
-                updates.dueDateTime = null;
+            const sourceDate = data.sourceDate || "";
+            const dropIdx = getDropIndex(el, e.clientY);
+
+            if (sourceDate === targetDate) {
+                // Same column: reorder only (no API call)
+                const dateKey = targetDate === "inbox" ? "inbox" : targetDate;
+                // Build current order from visible cards
+                const currentCards = [...el.querySelectorAll(".task-card:not(.dragging)")];
+                const currentOrder = currentCards.map(c => c.dataset.taskId);
+                // Insert dragged task at new position
+                currentOrder.splice(dropIdx, 0, data.taskId);
+                taskOrder[dateKey] = currentOrder;
+                saveTaskOrder();
+                renderDashboard();
             } else {
-                updates.dueDateTime = { dateTime: formatDateForGraph(new Date(targetDate)), timeZone: "UTC" };
+                // Different column: change date via API + update order
+                let updates = {};
+                if (targetDate === "inbox") {
+                    updates.dueDateTime = null;
+                } else {
+                    updates.dueDateTime = { dateTime: formatDateForGraph(new Date(targetDate)), timeZone: "UTC" };
+                }
+                await updateTask(data.listId, data.taskId, updates);
+                const item = allTasks.find(t => t.task.id === data.taskId && t.listId === data.listId);
+                if (item) {
+                    item.task.dueDateTime = updates.dueDateTime;
+                }
+                // Remove from source order
+                const sourceKey = sourceDate === "inbox" ? "inbox" : sourceDate;
+                if (taskOrder[sourceKey]) {
+                    taskOrder[sourceKey] = taskOrder[sourceKey].filter(id => id !== data.taskId);
+                }
+                // Add to target order at drop position
+                const targetKey = targetDate === "inbox" ? "inbox" : targetDate;
+                if (!taskOrder[targetKey]) taskOrder[targetKey] = [];
+                taskOrder[targetKey].splice(dropIdx, 0, data.taskId);
+                saveTaskOrder();
+                renderDashboard();
             }
-            await updateTask(data.listId, data.taskId, updates);
-            const item = allTasks.find(t => t.task.id === data.taskId && t.listId === data.listId);
-            if (item) {
-                item.task.dueDateTime = updates.dueDateTime;
-            }
-            renderDashboard();
         } catch (err) {
             console.error("Drop failed:", err);
             showToast("Impossible de déplacer la tâche.", true);

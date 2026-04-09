@@ -156,6 +156,16 @@ body::before {
     outline-offset: -2px;
 }
 
+/* Drop position indicator */
+.drop-indicator {
+    height: 3px;
+    background: var(--accent-warm);
+    border-radius: 2px;
+    margin: 2px 0;
+    pointer-events: none;
+    animation: fadeSlideIn 0.15s ease-out;
+}
+
 /* ===== TASK CARD ===== */
 .task-card {
     padding: 10px 12px; border-radius: var(--radius-card);
