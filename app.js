@@ -221,6 +221,18 @@ function getProjectColor(tag) {
     return projectColorMap[key];
 }
 
+function getContrastTextColor(hex) {
+    hex = hex.replace(/^#/, "");
+    const r = parseInt(hex.substring(0, 2), 16) / 255;
+    const g = parseInt(hex.substring(2, 4), 16) / 255;
+    const b = parseInt(hex.substring(4, 6), 16) / 255;
+    const rLin = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4);
+    const gLin = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4);
+    const bLin = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4);
+    const luminance = 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
+    return luminance > 0.179 ? "#1a1a2e" : "#fff";
+}
+
 function setProjectColor(tag, color) {
     const key = tag.toLowerCase();
     projectColorMap[key] = color;
@@ -1027,8 +1039,9 @@ function renderMonthGrid(container, visibleTasks, today) {
             pill.className = "month-task-pill";
             const tags = extractProjectTags(item.task.title);
             if (tags.length > 0) {
-                pill.style.background = getProjectColor(tags[0]);
-                pill.style.color = "#fff";
+                const projColor = getProjectColor(tags[0]);
+                pill.style.background = projColor;
+                pill.style.color = getContrastTextColor(projColor);
             } else {
                 pill.style.background = item.color.gradient;
                 pill.style.color = item.color.text;
@@ -1079,7 +1092,7 @@ function createTaskCard(item) {
     if (tags.length > 0) {
         const projColor = getProjectColor(tags[0]);
         card.style.background = "linear-gradient(135deg, " + projColor + ", " + projColor + "cc)";
-        card.style.color = "#fff";
+        card.style.color = getContrastTextColor(projColor);
     } else {
         card.style.background = color.gradient;
         card.style.color = color.text;
