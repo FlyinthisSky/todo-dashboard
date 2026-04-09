@@ -199,6 +199,7 @@ const PROJECT_COLORS = [
 const projectColorMap = {};
 let projectColorIndex = 0;
 let customTagColors = {};
+let customTagTextColors = {};
 
 function loadCustomTagColors() {
     try {
@@ -221,23 +222,26 @@ function getProjectColor(tag) {
     return projectColorMap[key];
 }
 
-function getContrastTextColor(hex) {
-    hex = hex.replace(/^#/, "");
-    const r = parseInt(hex.substring(0, 2), 16) / 255;
-    const g = parseInt(hex.substring(2, 4), 16) / 255;
-    const b = parseInt(hex.substring(4, 6), 16) / 255;
-    const rLin = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4);
-    const gLin = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4);
-    const bLin = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4);
-    const luminance = 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
-    return luminance > 0.5 ? "#000" : "#fff";
-}
-
 function setProjectColor(tag, color) {
     const key = tag.toLowerCase();
     projectColorMap[key] = color;
     customTagColors[key] = color;
     saveCustomTagColors();
+}
+
+function getTagTextColor(tag) {
+    return customTagTextColors[tag.toLowerCase()] || "#fff";
+}
+function setTagTextColor(tag, color) {
+    customTagTextColors[tag.toLowerCase()] = color;
+    saveCustomTagTextColors();
+}
+function loadCustomTagTextColors() {
+    try { customTagTextColors = JSON.parse(localStorage.getItem("customTagTextColors") || "{}"); }
+    catch (e) { customTagTextColors = {}; }
+}
+function saveCustomTagTextColors() {
+    localStorage.setItem("customTagTextColors", JSON.stringify(customTagTextColors));
 }
 
 function extractProjectTags(title) {
@@ -264,9 +268,13 @@ async function renameTag(oldTag, newTag) {
     // Transfer color from old tag to new tag
     const color = getProjectColor(oldTag);
     setProjectColor(newTag, color);
+    const txtColor = getTagTextColor(oldTag);
+    if (txtColor !== "#fff") setTagTextColor(newTag, txtColor);
     delete projectColorMap[oldTag];
     delete customTagColors[oldTag];
+    delete customTagTextColors[oldTag];
     saveCustomTagColors();
+    saveCustomTagTextColors();
 
     // Update all tasks containing the old tag (active + completed)
     const allKnownTasks = [...allTasks, ...completedTasks];
@@ -659,9 +667,25 @@ function renderTagPanel() {
             renaming = false;
         });
 
+        const toggleBtn = document.createElement("button");
+        toggleBtn.className = "tag-text-toggle";
+        const textColor = getTagTextColor(tag);
+        toggleBtn.textContent = "A";
+        toggleBtn.style.color = textColor;
+        toggleBtn.style.background = getProjectColor(tag);
+        toggleBtn.title = textColor === "#fff" ? "Texte blanc (cliquer pour noir)" : "Texte noir (cliquer pour blanc)";
+        toggleBtn.addEventListener("click", () => {
+            const newColor = getTagTextColor(tag) === "#fff" ? "#000" : "#fff";
+            setTagTextColor(tag, newColor);
+            toggleBtn.style.color = newColor;
+            toggleBtn.title = newColor === "#fff" ? "Texte blanc (cliquer pour noir)" : "Texte noir (cliquer pour blanc)";
+            renderDashboard();
+        });
+
         item.appendChild(colorInput);
         item.appendChild(hexInput);
         item.appendChild(nameInput);
+        item.appendChild(toggleBtn);
         panel.appendChild(item);
     });
 }
@@ -1041,7 +1065,7 @@ function renderMonthGrid(container, visibleTasks, today) {
             if (tags.length > 0) {
                 const projColor = getProjectColor(tags[0]);
                 pill.style.background = projColor;
-                pill.style.color = getContrastTextColor(projColor);
+                pill.style.color = getTagTextColor(tags[0]);
             } else {
                 pill.style.background = item.color.gradient;
                 pill.style.color = item.color.text;
@@ -1092,7 +1116,7 @@ function createTaskCard(item) {
     if (tags.length > 0) {
         const projColor = getProjectColor(tags[0]);
         card.style.background = "linear-gradient(135deg, " + projColor + ", " + projColor + "cc)";
-        card.style.color = getContrastTextColor(projColor);
+        card.style.color = getTagTextColor(tags[0]);
     } else {
         card.style.background = color.gradient;
         card.style.color = color.text;
@@ -1519,6 +1543,7 @@ function updateLastRefresh() {
 async function init() {
     if (typeof msal === "undefined") { setTimeout(init, 200); return; }
     loadCustomTagColors();
+    loadCustomTagTextColors();
     await loadColors();
     try {
         msalInstance = new msal.PublicClientApplication(msalConfig);
