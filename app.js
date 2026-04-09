@@ -978,6 +978,13 @@ function renderWeekGrid(container, visibleTasks, today) {
         } else {
             getOrderedTasks(dayTasks, formatDateForInput(day)).forEach(item => col.appendChild(createTaskCard(item)));
         }
+        // Click on empty area to create task on that day
+        col.addEventListener("click", (e) => {
+            if (e.target === col || e.target === header || e.target === dateNum || e.target.classList.contains("empty-msg")) {
+                openCreateModal(formatDateForInput(day));
+            }
+        });
+
         container.appendChild(col);
     });
 }
