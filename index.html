@@ -26,13 +26,15 @@
         <div class="header-actions">
             <button class="header-btn accent" onclick="openCreateModal()">+ Nouvelle tâche</button>
             <button class="header-btn" onclick="toggleCompleted()">Complétées</button>
-            <button class="header-btn" onclick="toggleTagPanel()">Tags</button>
-            <button class="header-btn" onclick="toggleFilter()">Filtrer</button>
+            <button class="header-btn" onclick="toggleFilter()">Liste</button>
+            <button class="header-btn" onclick="toggleTagFilter()">Tag</button>
+            <button class="header-btn" onclick="toggleTagPanel()">Couleurs</button>
             <button class="header-btn" onclick="refreshTasks()">Rafraîchir</button>
             <button class="header-btn" onclick="logout()">Déconnexion</button>
         </div>
         <div class="filter-panel" id="filter-panel"></div>
         <div class="tag-panel" id="tag-panel"></div>
+        <div class="tag-filter-panel" id="tag-filter-panel"></div>
     </div>
     <div class="nav-bar">
         <div class="nav-left">
