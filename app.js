@@ -272,6 +272,10 @@ async function renameTag(oldTag, newTag) {
     });
 
     await Promise.all(promises);
+    if (hiddenTags.includes(oldTag)) {
+        hiddenTags = hiddenTags.map(t => t === oldTag ? newTag : t);
+        saveHiddenTags();
+    }
     renderDashboard();
     renderTagPanel();
 }
@@ -381,11 +385,97 @@ let hiddenLists = JSON.parse(localStorage.getItem("hiddenLists") || "[]");
 
 function saveHiddenLists() { localStorage.setItem("hiddenLists", JSON.stringify(hiddenLists)); }
 
+// ===== TAG FILTER =====
+let hiddenTags = JSON.parse(localStorage.getItem("hiddenTags") || "[]");
+
+function saveHiddenTags() { localStorage.setItem("hiddenTags", JSON.stringify(hiddenTags)); }
+
+function toggleTagFilter() {
+    const panel = document.getElementById("tag-filter-panel");
+    const wasOpen = panel.classList.contains("open");
+    panel.classList.toggle("open");
+    document.getElementById("filter-panel").classList.remove("open");
+    document.getElementById("tag-panel").classList.remove("open");
+    if (panel.classList.contains("open")) renderTagFilterPanel();
+    else if (wasOpen) renderDashboard();
+}
+
+function renderTagFilterPanel() {
+    const panel = document.getElementById("tag-filter-panel");
+    panel.innerHTML = '<h3>Tags affichés</h3>';
+
+    const tags = getAllKnownTags();
+
+    if (tags.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "tag-panel-empty";
+        empty.textContent = "Aucun tag trouvé.";
+        panel.appendChild(empty);
+        return;
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "filter-actions";
+    const selectAll = document.createElement("button");
+    selectAll.textContent = "Tout cocher";
+    selectAll.onclick = () => { hiddenTags = []; saveHiddenTags(); renderTagFilterPanel(); renderDashboard(); };
+    const selectNone = document.createElement("button");
+    selectNone.textContent = "Tout décocher";
+    selectNone.onclick = () => { hiddenTags = [...tags, "__no_tag__"]; saveHiddenTags(); renderTagFilterPanel(); renderDashboard(); };
+    actions.appendChild(selectAll);
+    actions.appendChild(selectNone);
+    panel.appendChild(actions);
+
+    // Entry for tasks with no tag
+    const noTagItem = document.createElement("label");
+    noTagItem.className = "filter-item";
+    const noTagCb = document.createElement("input");
+    noTagCb.type = "checkbox";
+    noTagCb.checked = !hiddenTags.includes("__no_tag__");
+    noTagCb.addEventListener("change", () => {
+        if (noTagCb.checked) hiddenTags = hiddenTags.filter(t => t !== "__no_tag__");
+        else hiddenTags.push("__no_tag__");
+        saveHiddenTags();
+        renderDashboard();
+    });
+    const noTagVisual = document.createElement("span");
+    noTagVisual.className = "cb";
+    noTagItem.appendChild(noTagCb);
+    noTagItem.appendChild(noTagVisual);
+    noTagItem.appendChild(document.createTextNode("(Sans tag)"));
+    panel.appendChild(noTagItem);
+
+    // One entry per known tag
+    tags.forEach(tag => {
+        const item = document.createElement("label");
+        item.className = "filter-item";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = !hiddenTags.includes(tag);
+        cb.addEventListener("change", () => {
+            if (cb.checked) hiddenTags = hiddenTags.filter(t => t !== tag);
+            else hiddenTags.push(tag);
+            saveHiddenTags();
+            renderDashboard();
+        });
+        const visual = document.createElement("span");
+        visual.className = "cb";
+        const swatch = document.createElement("span");
+        swatch.style.cssText = "display:inline-block;width:10px;height:10px;border-radius:2px;flex-shrink:0;margin-right:4px;background:" + getProjectColor(tag);
+        item.appendChild(cb);
+        item.appendChild(visual);
+        item.appendChild(swatch);
+        item.appendChild(document.createTextNode(tag));
+        panel.appendChild(item);
+    });
+}
+
 function toggleFilter() {
     const panel = document.getElementById("filter-panel");
     const wasOpen = panel.classList.contains("open");
     panel.classList.toggle("open");
     document.getElementById("tag-panel").classList.remove("open");
+    document.getElementById("tag-filter-panel").classList.remove("open");
     if (panel.classList.contains("open")) renderFilterPanel();
     else if (wasOpen) loadAndRenderTasks();
 }
@@ -436,6 +526,7 @@ function toggleTagPanel() {
     const panel = document.getElementById("tag-panel");
     panel.classList.toggle("open");
     document.getElementById("filter-panel").classList.remove("open");
+    document.getElementById("tag-filter-panel").classList.remove("open");
     if (panel.classList.contains("open")) renderTagPanel();
 }
 
@@ -550,6 +641,13 @@ document.addEventListener("mousedown", (e) => {
         !tagPanel.contains(e.target) &&
         (!headerActions || !headerActions.contains(e.target))) {
         tagPanel.classList.remove("open");
+    }
+    const tagFilterPanel = document.getElementById("tag-filter-panel");
+    if (tagFilterPanel.classList.contains("open") &&
+        !tagFilterPanel.contains(e.target) &&
+        (!headerActions || !headerActions.contains(e.target))) {
+        tagFilterPanel.classList.remove("open");
+        renderDashboard();
     }
 });
 
@@ -777,7 +875,19 @@ function renderDashboard() {
     const weekGrid = document.getElementById("week-grid");
     weekGrid.innerHTML = "";
     const hiddenSet = new Set(hiddenLists);
-    const visibleTasks = allTasks.filter(({ listId }) => !hiddenSet.has(listId));
+    const hiddenTagSet = new Set(hiddenTags);
+    const visibleTasks = allTasks.filter(({ task, listId }) => {
+        if (hiddenSet.has(listId)) return false;
+        if (hiddenTagSet.size > 0) {
+            const taskTags = extractProjectTags(task.title).map(t => t.toLowerCase());
+            if (taskTags.length === 0) {
+                if (hiddenTagSet.has("__no_tag__")) return false;
+            } else {
+                if (taskTags.every(t => hiddenTagSet.has(t))) return false;
+            }
+        }
+        return true;
+    });
     const today = new Date(); today.setHours(0,0,0,0);
 
     if (viewMode === "month") {
