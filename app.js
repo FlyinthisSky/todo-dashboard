@@ -942,7 +942,7 @@ function renderDashboard() {
     const hiddenSet = new Set(hiddenLists);
     const hiddenTagSet = new Set(hiddenTags);
     const visibleTasks = allTasks.filter(({ task, listId }) => {
-        if (hiddenSet.has(listId)) return false;
+        if (hiddenSet.has(listId) && !task.dueDateTime) return false;
         if (hiddenTagSet.size > 0) {
             const taskTags = extractProjectTags(task.title).map(t => t.toLowerCase());
             if (taskTags.length === 0) {
