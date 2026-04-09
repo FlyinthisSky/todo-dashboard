@@ -230,7 +230,7 @@ function getContrastTextColor(hex) {
     const gLin = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4);
     const bLin = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4);
     const luminance = 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
-    return luminance > 0.4 ? "#000" : "#fff";
+    return luminance > 0.5 ? "#000" : "#fff";
 }
 
 function setProjectColor(tag, color) {
