@@ -25,7 +25,6 @@
         <h1>Ma Semaine</h1>
         <div class="header-actions">
             <button class="header-btn accent" onclick="openCreateModal()">+ Nouvelle tâche</button>
-            <button class="header-btn" onclick="toggleCompleted()">Complétées</button>
             <button class="header-btn" onclick="toggleFilter()">Liste</button>
             <button class="header-btn" onclick="toggleTagFilter()">Tag</button>
             <button class="header-btn" onclick="toggleTagPanel()">Couleurs</button>
@@ -55,10 +54,6 @@
             <div id="inbox-tasks"></div>
         </div>
         <div class="week-grid" id="week-grid" role="region" aria-label="Grille de tâches"></div>
-        <div class="completed-sidebar" id="completed-sidebar">
-            <div class="column-header">Complétées</div>
-            <div id="completed-tasks"></div>
-        </div>
     </div>
     <div class="footer">
         <span id="refresh-timer" aria-live="polite">Auto-refresh dans 15 min</span>
