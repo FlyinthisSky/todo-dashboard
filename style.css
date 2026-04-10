@@ -507,4 +507,36 @@ body::before {
     .day-column .column-header, .day-column .column-date { width: 100%; text-align: left; }
     .day-column .column-date { font-size: 1rem; margin-bottom: 4px; }
     .day-column .task-card { flex: 1; min-width: 140px; }
+    .search-input { width: 120px; }
+}
+
+/* ===== SEARCH INPUT ===== */
+.search-input {
+    background: var(--bg-column);
+    color: var(--text-primary);
+    border: 1px solid rgba(212,165,116,0.2);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-family: var(--font-main);
+    font-size: 0.8rem;
+    width: 180px;
+    margin-left: 12px;
+    transition: border-color 0.15s;
+}
+.search-input:focus { outline: none; border-color: var(--accent-warm); }
+.search-input::placeholder { color: var(--text-muted); }
+
+/* ===== DISABLED MODAL BUTTONS ===== */
+.modal-btn:disabled { cursor: wait; opacity: 0.5; }
+
+/* ===== TASK CARD FOCUS (A11Y) ===== */
+.task-card:focus { outline: 2px solid var(--accent-warm); outline-offset: 2px; }
+
+/* ===== REDUCED MOTION ===== */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

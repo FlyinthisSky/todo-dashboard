@@ -17,7 +17,10 @@ async function login() {
     try { await msalInstance.loginRedirect(loginRequest); }
     catch (err) { console.error("Login failed:", err); showToast("Erreur de connexion.", true); }
 }
-function logout() { if (msalInstance) msalInstance.logoutRedirect({ postLogoutRedirectUri: REDIRECT_URI }); }
+function logout() {
+    if (refreshIntervalId) { clearInterval(refreshIntervalId); refreshIntervalId = null; }
+    if (msalInstance) msalInstance.logoutRedirect({ postLogoutRedirectUri: REDIRECT_URI });
+}
 async function getAccessToken() {
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length === 0) throw new Error("No account");
@@ -43,6 +46,8 @@ function showToast(message, isError = false, undoFn = null) {
     if (existing) existing.remove();
     const toast = document.createElement("div");
     toast.className = "toast" + (isError ? " error" : "");
+    toast.setAttribute("role", "alert");
+    toast.setAttribute("aria-live", "assertive");
     const span = document.createElement("span");
     span.textContent = message;
     toast.appendChild(span);
@@ -61,6 +66,52 @@ function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+}
+
+function setModalLoading(modal, loading) {
+    modal.querySelectorAll(".modal-btn").forEach(btn => {
+        btn.disabled = loading;
+    });
+}
+
+function trapFocus(overlay, modal) {
+    const focusableSelector = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+    const previouslyFocused = document.activeElement;
+
+    function getFocusable() {
+        return [...modal.querySelectorAll(focusableSelector)].filter(el => el.offsetParent !== null);
+    }
+
+    requestAnimationFrame(() => {
+        const els = getFocusable();
+        if (els.length > 0) els[0].focus();
+    });
+
+    function handleKeydown(e) {
+        if (e.key === "Escape") {
+            e.preventDefault();
+            cleanup();
+            overlay.remove();
+            return;
+        }
+        if (e.key !== "Tab") return;
+        const els = getFocusable();
+        if (els.length === 0) return;
+        const first = els[0], last = els[els.length - 1];
+        if (e.shiftKey) {
+            if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        } else {
+            if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+    }
+
+    function cleanup() {
+        overlay.removeEventListener("keydown", handleKeydown);
+        if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
+    }
+
+    overlay.addEventListener("keydown", handleKeydown);
+    return cleanup;
 }
 
 // ===== GRAPH API =====
@@ -200,6 +251,7 @@ const projectColorMap = {};
 let projectColorIndex = 0;
 let customTagColors = {};
 let customTagTextColors = {};
+let isRenamingTag = false;
 
 function loadCustomTagColors() {
     try {
@@ -259,45 +311,51 @@ function getAllKnownTags() {
 }
 
 async function renameTag(oldTag, newTag) {
-    oldTag = oldTag.toLowerCase();
-    newTag = newTag.toLowerCase();
-    if (!newTag.startsWith("#")) newTag = "#" + newTag;
-    newTag = newTag.replace(/[^#\w]/g, "");
-    if (newTag === "#" || newTag === oldTag) return;
+    if (isRenamingTag) return;
+    isRenamingTag = true;
+    try {
+        oldTag = oldTag.toLowerCase();
+        newTag = newTag.toLowerCase();
+        if (!newTag.startsWith("#")) newTag = "#" + newTag;
+        newTag = newTag.replace(/[^#\w]/g, "");
+        if (newTag === "#" || newTag === oldTag) return;
 
-    // Transfer color from old tag to new tag
-    const color = getProjectColor(oldTag);
-    setProjectColor(newTag, color);
-    const txtColor = getTagTextColor(oldTag);
-    if (txtColor !== "#fff") setTagTextColor(newTag, txtColor);
-    delete projectColorMap[oldTag];
-    delete customTagColors[oldTag];
-    delete customTagTextColors[oldTag];
-    saveCustomTagColors();
-    saveCustomTagTextColors();
+        // Transfer color from old tag to new tag
+        const color = getProjectColor(oldTag);
+        setProjectColor(newTag, color);
+        const txtColor = getTagTextColor(oldTag);
+        if (txtColor !== "#fff") setTagTextColor(newTag, txtColor);
+        delete projectColorMap[oldTag];
+        delete customTagColors[oldTag];
+        delete customTagTextColors[oldTag];
+        saveCustomTagColors();
+        saveCustomTagTextColors();
 
-    // Update all tasks containing the old tag (active + completed)
-    const allKnownTasks = [...allTasks, ...completedTasks];
-    const tasksToUpdate = allKnownTasks.filter(({ task }) =>
-        extractProjectTags(task.title).some(t => t.toLowerCase() === oldTag)
-    );
-
-    const promises = tasksToUpdate.map(({ task, listId }) => {
-        const newTitle = task.title.replace(
-            new RegExp(oldTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi"),
-            newTag
+        // Update all tasks containing the old tag (active + completed)
+        const allKnownTasks = [...allTasks, ...completedTasks];
+        const tasksToUpdate = allKnownTasks.filter(({ task }) =>
+            extractProjectTags(task.title).some(t => t.toLowerCase() === oldTag)
         );
-        task.title = newTitle;
-        return updateTask(listId, task.id, { title: newTitle });
-    });
 
-    await Promise.all(promises);
-    if (hiddenTags.includes(oldTag)) {
-        hiddenTags = hiddenTags.map(t => t === oldTag ? newTag : t);
-        saveHiddenTags();
+        const promises = tasksToUpdate.map(({ task, listId }) => {
+            const newTitle = task.title.replace(
+                new RegExp(oldTag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi"),
+                newTag
+            );
+            task.title = newTitle;
+            return updateTask(listId, task.id, { title: newTitle });
+        });
+
+        await Promise.all(promises);
+        if (hiddenTags.includes(oldTag)) {
+            hiddenTags = hiddenTags.map(t => t === oldTag ? newTag : t);
+            saveHiddenTags();
+        }
+        renderDashboard();
+        renderTagPanel();
+    } finally {
+        isRenamingTag = false;
     }
-    renderDashboard();
-    renderTagPanel();
 }
 
 // ===== DATE UTILITIES =====
@@ -409,6 +467,9 @@ function saveHiddenLists() { localStorage.setItem("hiddenLists", JSON.stringify(
 let hiddenTags = JSON.parse(localStorage.getItem("hiddenTags") || "[]");
 
 function saveHiddenTags() { localStorage.setItem("hiddenTags", JSON.stringify(hiddenTags)); }
+
+// ===== SEARCH =====
+let searchQuery = "";
 
 // ===== TASK ORDER (per-day reordering) =====
 let taskOrder = JSON.parse(localStorage.getItem("taskOrder") || "{}");
@@ -650,7 +711,7 @@ function renderTagPanel() {
         });
         nameInput.addEventListener("blur", async () => {
             const newVal = nameInput.value.trim().toLowerCase().replace(/[^#\w]/g, "");
-            if (renaming || !newVal || newVal === tag) {
+            if (isRenamingTag || renaming || !newVal || newVal === tag) {
                 nameInput.value = tag;
                 return;
             }
@@ -795,10 +856,11 @@ function openCompletedModal(item) {
 
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-
     const modal = document.createElement("div");
     modal.className = "modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-label", "Modifier tâche complétée");
 
     const dueVal = task.dueDateTime ? formatDateForInput(new Date(task.dueDateTime.dateTime + "Z")) : "";
     modal.innerHTML = '<h2>Tâche complétée</h2>'
@@ -817,13 +879,17 @@ function openCompletedModal(item) {
         + '<div class="modal-actions">'
         + '<button class="modal-btn danger" id="modal-c-delete">Supprimer</button>'
         + '<div style="display:flex;gap:8px;">'
-        + '<button class="modal-btn secondary" onclick="this.closest(\'.modal-overlay\').remove()">Fermer</button>'
+        + '<button class="modal-btn secondary" id="modal-c-close">Fermer</button>'
         + '<button class="modal-btn primary" id="modal-c-save">Enregistrer</button>'
         + '<button class="modal-btn primary" id="modal-c-reopen">Réouvrir</button>'
         + '</div></div>';
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    const cleanupFocus = trapFocus(overlay, modal);
+    function closeModal() { cleanupFocus(); overlay.remove(); }
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+    document.getElementById("modal-c-close").addEventListener("click", closeModal);
 
     function getModalValues() {
         const newTitle = document.getElementById("modal-c-title").value.trim();
@@ -847,6 +913,7 @@ function openCompletedModal(item) {
     // Save changes (keep completed, optionally move list)
     document.getElementById("modal-c-save").addEventListener("click", async () => {
         const vals = getModalValues();
+        setModalLoading(modal, true);
         try {
             if (vals.newListId !== listId) {
                 await moveTaskToList(vals, "completed");
@@ -856,10 +923,11 @@ function openCompletedModal(item) {
                     dueDateTime: vals.dueDateTime,
                 });
             }
-            overlay.remove();
+            closeModal();
             loadCompletedTasks();
             showToast("Tâche mise à jour !");
         } catch (err) {
+            setModalLoading(modal, false);
             console.error("Save completed task failed:", err);
             showToast("Impossible de mettre à jour.", true);
         }
@@ -868,6 +936,7 @@ function openCompletedModal(item) {
     // Reopen task (optionally in a different list)
     document.getElementById("modal-c-reopen").addEventListener("click", async () => {
         const vals = getModalValues();
+        setModalLoading(modal, true);
         try {
             if (vals.newListId !== listId) {
                 await moveTaskToList(vals, "notStarted");
@@ -877,27 +946,43 @@ function openCompletedModal(item) {
                     importance: vals.newImportance, dueDateTime: vals.dueDateTime,
                 });
             }
-            overlay.remove();
+            closeModal();
             await loadAndRenderTasks();
             loadCompletedTasks();
             showToast("Tâche réouverte !");
         } catch (err) {
+            setModalLoading(modal, false);
             console.error("Reopen failed:", err);
             showToast("Impossible de réouvrir.", true);
         }
     });
 
-    document.getElementById("modal-c-delete").addEventListener("click", async () => {
-        if (!confirm("Supprimer cette tâche définitivement ?")) return;
-        try {
-            await deleteTask(listId, task.id);
-            overlay.remove();
+    document.getElementById("modal-c-delete").addEventListener("click", () => {
+        closeModal();
+        const taskIndex = completedTasks.findIndex(t => t.task.id === task.id && t.listId === listId);
+        let removedItem = null;
+        if (taskIndex !== -1) removedItem = completedTasks.splice(taskIndex, 1)[0];
+        loadCompletedTasks();
+
+        let cancelled = false;
+        const deleteTimeout = setTimeout(async () => {
+            if (cancelled) return;
+            try {
+                await deleteTask(listId, task.id);
+            } catch (err) {
+                console.error("Delete failed:", err);
+                showToast("Impossible de supprimer.", true);
+                if (removedItem) completedTasks.push(removedItem);
+                loadCompletedTasks();
+            }
+        }, 5000);
+
+        showToast("Tâche supprimée.", false, () => {
+            cancelled = true;
+            clearTimeout(deleteTimeout);
+            if (removedItem) completedTasks.push(removedItem);
             loadCompletedTasks();
-            showToast("Tâche supprimée.");
-        } catch (err) {
-            console.error("Delete failed:", err);
-            showToast("Impossible de supprimer.", true);
-        }
+        });
     });
 }
 
@@ -951,6 +1036,7 @@ function renderDashboard() {
                 if (taskTags.every(t => hiddenTagSet.has(t))) return false;
             }
         }
+        if (searchQuery && !task.title.toLowerCase().includes(searchQuery)) return false;
         return true;
     });
     const today = new Date(); today.setHours(0,0,0,0);
@@ -989,6 +1075,8 @@ function renderWeekGrid(container, visibleTasks, today) {
         const col = document.createElement("div");
         col.className = "day-column" + (isSameDay(day, today) ? " today" : "");
         col.dataset.date = formatDateForInput(day);
+        col.setAttribute("role", "region");
+        col.setAttribute("aria-label", DAY_NAMES[day.getDay()] + " " + day.getDate());
         setupDropZone(col);
 
         const header = document.createElement("div");
@@ -1109,6 +1197,7 @@ function createTaskCard(item) {
     const card = document.createElement("div");
     card.className = "task-card";
     card.draggable = true;
+    card.tabIndex = 0;
     card.dataset.taskId = task.id;
     card.dataset.listId = listId;
 
@@ -1178,6 +1267,71 @@ function createTaskCard(item) {
         e.dataTransfer.effectAllowed = "move";
     });
     card.addEventListener("dragend", () => card.classList.remove("dragging"));
+
+    // Keyboard navigation for accessibility
+    card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openEditModal(item);
+            return;
+        }
+
+        const column = card.closest("[data-date]");
+        if (!column) return;
+        const dateKey = column.dataset.date;
+
+        // Alt+Up/Down = reorder within column
+        if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+            e.preventDefault();
+            const cards = [...column.querySelectorAll(".task-card")];
+            const currentIndex = cards.indexOf(card);
+            const newIndex = e.key === "ArrowUp" ? currentIndex - 1 : currentIndex + 1;
+            if (newIndex < 0 || newIndex >= cards.length) return;
+            const currentOrder = cards.map(c => c.dataset.taskId);
+            const [moved] = currentOrder.splice(currentIndex, 1);
+            currentOrder.splice(newIndex, 0, moved);
+            taskOrder[dateKey] = currentOrder;
+            saveTaskOrder();
+            renderDashboard();
+            requestAnimationFrame(() => {
+                const newCard = document.querySelector('.task-card[data-task-id="' + task.id + '"]');
+                if (newCard) newCard.focus();
+            });
+            return;
+        }
+
+        // Alt+Left/Right = move to adjacent column (week view only)
+        if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+            e.preventDefault();
+            const columns = [...document.querySelectorAll("[data-date]")];
+            const colIndex = columns.indexOf(column);
+            const targetIndex = e.key === "ArrowLeft" ? colIndex - 1 : colIndex + 1;
+            if (targetIndex < 0 || targetIndex >= columns.length) return;
+            const targetDate = columns[targetIndex].dataset.date;
+            let updates = {};
+            if (targetDate === "inbox") {
+                updates.dueDateTime = null;
+            } else {
+                updates.dueDateTime = { dateTime: formatDateForGraph(new Date(targetDate)), timeZone: "UTC" };
+            }
+            item.task.dueDateTime = updates.dueDateTime;
+            if (taskOrder[dateKey]) taskOrder[dateKey] = taskOrder[dateKey].filter(id => id !== task.id);
+            if (!taskOrder[targetDate]) taskOrder[targetDate] = [];
+            taskOrder[targetDate].push(task.id);
+            saveTaskOrder();
+            renderDashboard();
+            updateTask(listId, task.id, updates).catch(err => {
+                console.error("Move failed:", err);
+                showToast("Impossible de déplacer la tâche.", true);
+                loadAndRenderTasks();
+            });
+            requestAnimationFrame(() => {
+                const newCard = document.querySelector('.task-card[data-task-id="' + task.id + '"]');
+                if (newCard) newCard.focus();
+            });
+            return;
+        }
+    });
 
     return card;
 }
@@ -1336,10 +1490,11 @@ function openEditModal(item) {
 
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-
     const modal = document.createElement("div");
     modal.className = "modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-label", "Modifier la tâche");
     modal.innerHTML = '<h2>Modifier la tâche</h2>'
         + '<label>Titre</label>'
         + '<input type="text" id="modal-title" value="' + escapeHtml(cleanTitle) + '">'
@@ -1359,12 +1514,16 @@ function openEditModal(item) {
         + '<div class="modal-actions">'
         + '<button class="modal-btn danger" id="modal-delete">Supprimer</button>'
         + '<div style="display:flex;gap:8px;">'
-        + '<button class="modal-btn secondary" onclick="this.closest(\'.modal-overlay\').remove()">Annuler</button>'
+        + '<button class="modal-btn secondary" id="modal-cancel">Annuler</button>'
         + '<button class="modal-btn primary" id="modal-save">Enregistrer</button>'
         + '</div></div>';
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    const cleanupFocus = trapFocus(overlay, modal);
+    function closeModal() { cleanupFocus(); overlay.remove(); }
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+    document.getElementById("modal-cancel").addEventListener("click", closeModal);
 
     buildTagChips(document.getElementById("modal-tag-chips"), selectedTags, (tags) => { selectedTags = tags; });
 
@@ -1386,28 +1545,45 @@ function openEditModal(item) {
             updates.dueDateTime = null;
         }
 
+        setModalLoading(modal, true);
         try {
             await updateTask(listId, task.id, updates);
-            overlay.remove();
+            closeModal();
             await loadAndRenderTasks();
             showToast("Tâche mise à jour !");
         } catch (err) {
+            setModalLoading(modal, false);
             console.error("Update failed:", err);
             showToast("Erreur lors de la mise à jour.", true);
         }
     });
 
-    document.getElementById("modal-delete").addEventListener("click", async () => {
-        if (!confirm("Supprimer cette tâche définitivement ?")) return;
-        try {
-            await deleteTask(listId, task.id);
-            overlay.remove();
-            await loadAndRenderTasks();
-            showToast("Tâche supprimée.");
-        } catch (err) {
-            console.error("Delete failed:", err);
-            showToast("Impossible de supprimer la tâche.", true);
-        }
+    document.getElementById("modal-delete").addEventListener("click", () => {
+        closeModal();
+        const taskIndex = allTasks.findIndex(t => t.task.id === task.id && t.listId === listId);
+        let removedItem = null;
+        if (taskIndex !== -1) removedItem = allTasks.splice(taskIndex, 1)[0];
+        renderDashboard();
+
+        let cancelled = false;
+        const deleteTimeout = setTimeout(async () => {
+            if (cancelled) return;
+            try {
+                await deleteTask(listId, task.id);
+            } catch (err) {
+                console.error("Delete failed:", err);
+                showToast("Impossible de supprimer la tâche.", true);
+                if (removedItem) allTasks.push(removedItem);
+                renderDashboard();
+            }
+        }, 5000);
+
+        showToast("Tâche supprimée.", false, () => {
+            cancelled = true;
+            clearTimeout(deleteTimeout);
+            if (removedItem) allTasks.push(removedItem);
+            renderDashboard();
+        });
     });
 }
 
@@ -1420,10 +1596,12 @@ function openCreateModal(defaultDate) {
 
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
 
     const modal = document.createElement("div");
     modal.className = "modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-label", "Créer une tâche");
     modal.innerHTML = '<h2>Nouvelle tâche</h2>'
         + '<label>Titre</label>'
         + '<input type="text" id="modal-create-title" placeholder="Titre de la tâche">'
@@ -1443,15 +1621,18 @@ function openCreateModal(defaultDate) {
         + '<div class="modal-actions">'
         + '<div></div>'
         + '<div style="display:flex;gap:8px;">'
-        + '<button class="modal-btn secondary" onclick="this.closest(\'.modal-overlay\').remove()">Annuler</button>'
+        + '<button class="modal-btn secondary" id="modal-create-cancel">Annuler</button>'
         + '<button class="modal-btn primary" id="modal-create-save">Créer</button>'
         + '</div></div>';
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    const cleanupFocus = trapFocus(overlay, modal);
+    function closeModal() { cleanupFocus(); overlay.remove(); }
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+    document.getElementById("modal-create-cancel").addEventListener("click", closeModal);
 
     buildTagChips(document.getElementById("modal-create-tag-chips"), selectedTags, (tags) => { selectedTags = tags; });
-    setTimeout(() => document.getElementById("modal-create-title").focus(), 50);
 
     async function doCreate() {
         let title = document.getElementById("modal-create-title").value.trim();
@@ -1466,12 +1647,14 @@ function openCreateModal(defaultDate) {
         if (body) taskData.body = { content: body, contentType: "text" };
         if (date) taskData.dueDateTime = { dateTime: formatDateForGraph(new Date(date)), timeZone: "UTC" };
 
+        setModalLoading(modal, true);
         try {
             await graphPost(GRAPH_BASE + "/me/todo/lists/" + listId + "/tasks", taskData);
-            overlay.remove();
+            closeModal();
             await loadAndRenderTasks();
             showToast("Tâche créée !");
         } catch (err) {
+            setModalLoading(modal, false);
             console.error("Create failed:", err);
             showToast("Impossible de créer la tâche.", true);
         }
@@ -1538,6 +1721,67 @@ function updateLastRefresh() {
     const el = document.getElementById("last-update");
     if (el) el.textContent = "Dernière MàJ : " + now.getHours().toString().padStart(2,"0") + ":" + now.getMinutes().toString().padStart(2,"0");
 }
+
+// ===== SEARCH LISTENER =====
+document.getElementById("search-input").addEventListener("input", (e) => {
+    searchQuery = e.target.value.trim().toLowerCase();
+    renderDashboard();
+});
+
+// ===== KEYBOARD SHORTCUTS =====
+document.addEventListener("keydown", (e) => {
+    const tag = e.target.tagName;
+    const isInput = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
+    // Ctrl+K / Cmd+K = focus search (always active)
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        document.getElementById("search-input").focus();
+        return;
+    }
+
+    if (isInput) return;
+
+    // N = new task
+    if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        openCreateModal();
+        return;
+    }
+    // R = refresh
+    if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        refreshTasks();
+        return;
+    }
+    // T = today
+    if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        navigateToday();
+        return;
+    }
+    // Escape = close panels
+    if (e.key === "Escape") {
+        document.getElementById("filter-panel").classList.remove("open");
+        document.getElementById("tag-panel").classList.remove("open");
+        document.getElementById("tag-filter-panel").classList.remove("open");
+        const sidebar = document.getElementById("completed-sidebar");
+        if (sidebar.classList.contains("open")) sidebar.classList.remove("open");
+        return;
+    }
+    // Alt+Left = navigate prev
+    if (e.altKey && e.key === "ArrowLeft") {
+        e.preventDefault();
+        navigatePrev();
+        return;
+    }
+    // Alt+Right = navigate next
+    if (e.altKey && e.key === "ArrowRight") {
+        e.preventDefault();
+        navigateNext();
+        return;
+    }
+});
 
 // ===== STARTUP =====
 async function init() {

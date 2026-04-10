@@ -38,10 +38,11 @@
     </div>
     <div class="nav-bar">
         <div class="nav-left">
-            <button class="nav-btn" onclick="navigatePrev()" title="Précédent">&#8249;</button>
-            <button class="nav-btn" onclick="navigateNext()" title="Suivant">&#8250;</button>
-            <button class="nav-btn nav-today" id="nav-today-btn" onclick="navigateToday()">Aujourd'hui</button>
+            <button class="nav-btn" onclick="navigatePrev()" title="Précédent" aria-label="Période précédente">&#8249;</button>
+            <button class="nav-btn" onclick="navigateNext()" title="Suivant" aria-label="Période suivante">&#8250;</button>
+            <button class="nav-btn nav-today" id="nav-today-btn" onclick="navigateToday()" aria-label="Aller à aujourd'hui">Aujourd'hui</button>
             <span class="nav-label" id="nav-label"></span>
+            <input type="text" id="search-input" class="search-input" placeholder="Rechercher..." aria-label="Rechercher une tâche">
         </div>
         <div class="nav-right">
             <button class="view-btn active" data-view="week" onclick="switchView('week')">Semaine</button>
@@ -49,18 +50,18 @@
         </div>
     </div>
     <div class="main">
-        <div class="inbox" id="inbox-column">
+        <div class="inbox" id="inbox-column" role="region" aria-label="Boîte de réception">
             <div class="column-header">Inbox</div>
             <div id="inbox-tasks"></div>
         </div>
-        <div class="week-grid" id="week-grid"></div>
+        <div class="week-grid" id="week-grid" role="region" aria-label="Grille de tâches"></div>
         <div class="completed-sidebar" id="completed-sidebar">
             <div class="column-header">Complétées</div>
             <div id="completed-tasks"></div>
         </div>
     </div>
     <div class="footer">
-        <span id="refresh-timer">Auto-refresh dans 15 min</span>
+        <span id="refresh-timer" aria-live="polite">Auto-refresh dans 15 min</span>
         <span id="last-update"></span>
     </div>
 </div>
