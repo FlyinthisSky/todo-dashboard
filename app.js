@@ -332,7 +332,7 @@ async function renameTag(oldTag, newTag) {
         saveCustomTagTextColors();
 
         // Update all tasks containing the old tag (active + completed)
-        const allKnownTasks = [...allTasks, ...completedTasks];
+        const allKnownTasks = allTasks;
         const tasksToUpdate = allKnownTasks.filter(({ task }) =>
             extractProjectTags(task.title).some(t => t.toLowerCase() === oldTag)
         );
@@ -778,76 +778,6 @@ document.addEventListener("mousedown", (e) => {
 });
 
 // ===== COMPLETED TASKS =====
-let completedTasks = [];
-
-function toggleCompleted() {
-    const sidebar = document.getElementById("completed-sidebar");
-    sidebar.classList.toggle("open");
-    if (sidebar.classList.contains("open")) loadCompletedTasks();
-}
-
-async function loadCompletedTasks() {
-    const container = document.getElementById("completed-tasks");
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;">Chargement...</div>';
-    completedTasks = [];
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    for (const list of allLists) {
-        try {
-            const tasks = await fetchCompletedTasks(list.id);
-            for (const task of tasks) {
-                if (task.completedDateTime) {
-                    const completedDate = new Date(task.completedDateTime.dateTime + "Z");
-                    if (completedDate >= thirtyDaysAgo) {
-                        completedTasks.push({ task, listId: list.id, listName: list.displayName, completedDate });
-                    }
-                }
-            }
-        } catch (err) {
-            console.warn("Impossible de charger les complétées de '" + list.displayName + "':", err);
-        }
-    }
-
-    // Sort using cached date objects
-    completedTasks.sort((a, b) => b.completedDate - a.completedDate);
-
-    const hiddenSet = new Set(hiddenLists);
-    const visibleCompleted = completedTasks.filter(({ listId }) => !hiddenSet.has(listId));
-    container.innerHTML = "";
-    if (visibleCompleted.length === 0) {
-        container.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;font-style:italic;">Aucune tâche complétée</div>';
-        return;
-    }
-
-    // Batch DOM operations with DocumentFragment + event delegation
-    const fragment = document.createDocumentFragment();
-    visibleCompleted.forEach(({ task, listName, completedDate }, index) => {
-        const card = document.createElement("div");
-        card.className = "completed-card";
-        card.style.cursor = "pointer";
-        card.dataset.index = index;
-        const titleSpan = document.createElement("div");
-        titleSpan.className = "task-title";
-        titleSpan.textContent = task.title;
-        const meta = document.createElement("div");
-        meta.className = "completed-meta";
-        meta.innerHTML = '<span>' + escapeHtml(listName) + '</span>'
-            + '<span>' + completedDate.getDate() + '/' + (completedDate.getMonth()+1) + '</span>';
-        card.appendChild(titleSpan);
-        card.appendChild(meta);
-        fragment.appendChild(card);
-    });
-    container.appendChild(fragment);
-
-    // Single delegated click listener instead of one per card
-    container.onclick = (e) => {
-        const card = e.target.closest(".completed-card");
-        if (!card) return;
-        const item = visibleCompleted[parseInt(card.dataset.index)];
-        if (item) openCompletedModal(item);
-    };
-}
 
 function openCompletedModal(item) {
     const { task, listId, listName } = item;
@@ -924,7 +854,7 @@ function openCompletedModal(item) {
                 });
             }
             closeModal();
-            loadCompletedTasks();
+            await loadAndRenderTasks();
             showToast("Tâche mise à jour !");
         } catch (err) {
             setModalLoading(modal, false);
@@ -948,7 +878,6 @@ function openCompletedModal(item) {
             }
             closeModal();
             await loadAndRenderTasks();
-            loadCompletedTasks();
             showToast("Tâche réouverte !");
         } catch (err) {
             setModalLoading(modal, false);
@@ -959,10 +888,10 @@ function openCompletedModal(item) {
 
     document.getElementById("modal-c-delete").addEventListener("click", () => {
         closeModal();
-        const taskIndex = completedTasks.findIndex(t => t.task.id === task.id && t.listId === listId);
+        const taskIndex = allTasks.findIndex(t => t.task.id === task.id && t.listId === listId);
         let removedItem = null;
-        if (taskIndex !== -1) removedItem = completedTasks.splice(taskIndex, 1)[0];
-        loadCompletedTasks();
+        if (taskIndex !== -1) removedItem = allTasks.splice(taskIndex, 1)[0];
+        renderDashboard();
 
         let cancelled = false;
         const deleteTimeout = setTimeout(async () => {
@@ -972,16 +901,16 @@ function openCompletedModal(item) {
             } catch (err) {
                 console.error("Delete failed:", err);
                 showToast("Impossible de supprimer.", true);
-                if (removedItem) completedTasks.push(removedItem);
-                loadCompletedTasks();
+                if (removedItem) allTasks.push(removedItem);
+                renderDashboard();
             }
         }, 5000);
 
         showToast("Tâche supprimée.", false, () => {
             cancelled = true;
             clearTimeout(deleteTimeout);
-            if (removedItem) completedTasks.push(removedItem);
-            loadCompletedTasks();
+            if (removedItem) allTasks.push(removedItem);
+            renderDashboard();
         });
     });
 }
@@ -1007,6 +936,22 @@ async function loadAndRenderTasks() {
             } catch (err) {
                 console.warn("Impossible de charger la liste '" + list.displayName + "':", err);
                 failedLists.push(list.displayName);
+            }
+        }
+
+        // Fetch completed tasks and merge them into allTasks
+        for (const list of allLists) {
+            try {
+                const tasks = await fetchCompletedTasks(list.id);
+                const color = getListColor(list.displayName);
+                for (const task of tasks) {
+                    if (task.completedDateTime) {
+                        const completedDate = new Date(task.completedDateTime.dateTime + "Z");
+                        allTasks.push({ task, listId: list.id, listName: list.displayName, color, completed: true, completedDate });
+                    }
+                }
+            } catch (err) {
+                console.warn("Impossible de charger les complétées de '" + list.displayName + "':", err);
             }
         }
 
@@ -1056,7 +1001,7 @@ function renderDashboard() {
     inboxCol.dataset.date = "inbox";
     setupDropZone(inboxCol);
 
-    const inboxTasks = visibleTasks.filter(({ task }) => !task.dueDateTime);
+    const inboxTasks = visibleTasks.filter(({ task, completed }) => !task.dueDateTime && !completed);
     if (inboxTasks.length === 0) {
         const empty = document.createElement("div");
         empty.className = "empty-msg";
@@ -1088,19 +1033,25 @@ function renderWeekGrid(container, visibleTasks, today) {
         col.appendChild(header);
         col.appendChild(dateNum);
 
-        const dayTasks = visibleTasks.filter(({ task }) => {
+        const activeDayTasks = visibleTasks.filter(({ task, completed }) => {
+            if (completed) return false;
             if (!task.dueDateTime) return false;
             const due = new Date(task.dueDateTime.dateTime + "Z");
             return isSameDay(due, day);
         });
+        const completedDayTasks = visibleTasks.filter(({ completed, completedDate }) => {
+            if (!completed) return false;
+            return isSameDay(completedDate, day);
+        });
 
-        if (dayTasks.length === 0) {
+        if (activeDayTasks.length === 0 && completedDayTasks.length === 0) {
             const empty = document.createElement("div");
             empty.className = "empty-msg";
             empty.textContent = "Rien de prévu";
             col.appendChild(empty);
         } else {
-            getOrderedTasks(dayTasks, formatDateForInput(day)).forEach(item => col.appendChild(createTaskCard(item)));
+            getOrderedTasks(activeDayTasks, formatDateForInput(day)).forEach(item => col.appendChild(createTaskCard(item)));
+            completedDayTasks.forEach(item => col.appendChild(createTaskCard(item)));
         }
         // Click on empty area to create task on that day
         col.addEventListener("click", (e) => {
@@ -1138,17 +1089,23 @@ function renderMonthGrid(container, visibleTasks, today) {
         dateLabel.textContent = day.getDate();
         cell.appendChild(dateLabel);
 
-        const dayTasks = visibleTasks.filter(({ task }) => {
+        const activeDayTasks = visibleTasks.filter(({ task, completed }) => {
+            if (completed) return false;
             if (!task.dueDateTime) return false;
             const due = new Date(task.dueDateTime.dateTime + "Z");
             return isSameDay(due, day);
         });
+        const completedDayTasks = visibleTasks.filter(({ completed, completedDate }) => {
+            if (!completed) return false;
+            return isSameDay(completedDate, day);
+        });
 
-        const orderedDayTasks = getOrderedTasks(dayTasks, formatDateForInput(day));
+        const orderedActiveTasks = getOrderedTasks(activeDayTasks, formatDateForInput(day));
+        const allDayTasks = [...orderedActiveTasks, ...completedDayTasks];
         const maxPills = 3;
-        orderedDayTasks.slice(0, maxPills).forEach(item => {
+        allDayTasks.slice(0, maxPills).forEach(item => {
             const pill = document.createElement("div");
-            pill.className = "month-task-pill";
+            pill.className = "month-task-pill" + (item.completed ? " completed" : "");
             const tags = extractProjectTags(item.task.title);
             if (tags.length > 0) {
                 const projColor = getProjectColor(tags[0]);
@@ -1158,26 +1115,31 @@ function renderMonthGrid(container, visibleTasks, today) {
                 pill.style.background = item.color.gradient;
                 pill.style.color = item.color.text;
             }
-            if (item.task.dueDateTime) {
+            if (!item.completed && item.task.dueDateTime) {
                 const due = new Date(item.task.dueDateTime.dateTime + "Z");
                 if (isOverdue(due)) pill.classList.add("overdue");
             }
             pill.textContent = item.task.title.replace(/#\w+/g, "").trim();
-            pill.draggable = true;
-            pill.addEventListener("click", (e) => { e.stopPropagation(); openEditModal(item); });
-            pill.addEventListener("dragstart", (e) => {
-                pill.classList.add("dragging");
-                const sourceDate = pill.closest("[data-date]")?.dataset.date || "";
-                e.dataTransfer.setData("text/plain", JSON.stringify({ taskId: item.task.id, listId: item.listId, sourceDate: sourceDate }));
-                e.dataTransfer.effectAllowed = "move";
-            });
-            pill.addEventListener("dragend", () => pill.classList.remove("dragging"));
+            if (item.completed) {
+                pill.draggable = false;
+                pill.addEventListener("click", (e) => { e.stopPropagation(); openCompletedModal(item); });
+            } else {
+                pill.draggable = true;
+                pill.addEventListener("click", (e) => { e.stopPropagation(); openEditModal(item); });
+                pill.addEventListener("dragstart", (e) => {
+                    pill.classList.add("dragging");
+                    const sourceDate = pill.closest("[data-date]")?.dataset.date || "";
+                    e.dataTransfer.setData("text/plain", JSON.stringify({ taskId: item.task.id, listId: item.listId, sourceDate: sourceDate }));
+                    e.dataTransfer.effectAllowed = "move";
+                });
+                pill.addEventListener("dragend", () => pill.classList.remove("dragging"));
+            }
             cell.appendChild(pill);
         });
-        if (orderedDayTasks.length > maxPills) {
+        if (allDayTasks.length > maxPills) {
             const more = document.createElement("div");
             more.className = "month-more-indicator";
-            more.textContent = "+" + (orderedDayTasks.length - maxPills) + " autre" + (orderedDayTasks.length - maxPills > 1 ? "s" : "");
+            more.textContent = "+" + (allDayTasks.length - maxPills) + " autre" + (allDayTasks.length - maxPills > 1 ? "s" : "");
             cell.appendChild(more);
         }
 
@@ -1193,10 +1155,10 @@ function renderMonthGrid(container, visibleTasks, today) {
 }
 
 function createTaskCard(item) {
-    const { task, listId, listName, color } = item;
+    const { task, listId, listName, color, completed } = item;
     const card = document.createElement("div");
-    card.className = "task-card";
-    card.draggable = true;
+    card.className = "task-card" + (completed ? " completed" : "");
+    card.draggable = !completed;
     card.tabIndex = 0;
     card.dataset.taskId = task.id;
     card.dataset.listId = listId;
@@ -1212,7 +1174,7 @@ function createTaskCard(item) {
     }
 
     let overdueFlag = false;
-    if (task.dueDateTime) {
+    if (!completed && task.dueDateTime) {
         const due = new Date(task.dueDateTime.dateTime + "Z");
         if (isOverdue(due)) { card.classList.add("overdue"); overdueFlag = true; }
     }
@@ -1231,7 +1193,7 @@ function createTaskCard(item) {
 
     card.appendChild(label);
     card.appendChild(titleEl);
-    card.appendChild(importance);
+    if (!completed) card.appendChild(importance);
 
     tags.forEach(tag => {
         const tagEl = document.createElement("span");
@@ -1249,30 +1211,37 @@ function createTaskCard(item) {
         card.appendChild(badge);
     }
 
-    let clickTimer = null;
-    card.addEventListener("click", (e) => {
-        if (card.classList.contains("completing")) return;
-        clearTimeout(clickTimer);
-        clickTimer = setTimeout(() => openEditModal(item), 250);
-    });
-    card.addEventListener("dblclick", (e) => {
-        e.preventDefault();
-        clearTimeout(clickTimer);
-        handleComplete(card, listId, task.id);
-    });
-    card.addEventListener("dragstart", (e) => {
-        card.classList.add("dragging");
-        const sourceDate = card.closest("[data-date]")?.dataset.date || "";
-        e.dataTransfer.setData("text/plain", JSON.stringify({ taskId: task.id, listId: listId, sourceDate: sourceDate }));
-        e.dataTransfer.effectAllowed = "move";
-    });
-    card.addEventListener("dragend", () => card.classList.remove("dragging"));
+    if (completed) {
+        card.addEventListener("click", () => openCompletedModal(item));
+    } else {
+        let clickTimer = null;
+        card.addEventListener("click", (e) => {
+            if (card.classList.contains("completing")) return;
+            clearTimeout(clickTimer);
+            clickTimer = setTimeout(() => openEditModal(item), 250);
+        });
+        card.addEventListener("dblclick", (e) => {
+            e.preventDefault();
+            clearTimeout(clickTimer);
+            handleComplete(card, listId, task.id);
+        });
+    }
+    if (!completed) {
+        card.addEventListener("dragstart", (e) => {
+            card.classList.add("dragging");
+            const sourceDate = card.closest("[data-date]")?.dataset.date || "";
+            e.dataTransfer.setData("text/plain", JSON.stringify({ taskId: task.id, listId: listId, sourceDate: sourceDate }));
+            e.dataTransfer.effectAllowed = "move";
+        });
+        card.addEventListener("dragend", () => card.classList.remove("dragging"));
+    }
 
     // Keyboard navigation for accessibility
     card.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            openEditModal(item);
+            if (completed) openCompletedModal(item);
+            else openEditModal(item);
             return;
         }
 
@@ -1684,7 +1653,10 @@ async function handleComplete(card, listId, taskId) {
         setTimeout(() => {
             if (cancelled) return;
             card.classList.add("fade-out");
-            setTimeout(() => card.remove(), 400);
+            setTimeout(() => {
+                card.remove();
+                loadAndRenderTasks();
+            }, 400);
         }, 3000);
     } catch (err) {
         card.classList.remove("completing");
@@ -1765,8 +1737,6 @@ document.addEventListener("keydown", (e) => {
         document.getElementById("filter-panel").classList.remove("open");
         document.getElementById("tag-panel").classList.remove("open");
         document.getElementById("tag-filter-panel").classList.remove("open");
-        const sidebar = document.getElementById("completed-sidebar");
-        if (sidebar.classList.contains("open")) sidebar.classList.remove("open");
         return;
     }
     // Alt+Left = navigate prev
