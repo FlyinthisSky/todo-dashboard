@@ -372,9 +372,10 @@ function getMonday(date) {
     return d;
 }
 function getWeekDays() {
-    const monday = getMonday(new Date());
-    monday.setDate(monday.getDate() + weekOffset * 7);
-    return Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return d; });
+    const center = new Date();
+    center.setHours(0, 0, 0, 0);
+    center.setDate(center.getDate() + weekOffset * 7 - 3);
+    return Array.from({ length: 7 }, (_, i) => { const d = new Date(center); d.setDate(center.getDate() + i); return d; });
 }
 function getViewMonth() {
     const d = new Date();
