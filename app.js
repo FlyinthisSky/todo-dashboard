@@ -1313,11 +1313,13 @@ function removeDropIndicator(container) {
 }
 
 function showDropIndicator(container, y) {
-    removeDropIndicator(container);
     const cards = [...container.querySelectorAll(".task-card:not(.dragging)")];
-    if (cards.length === 0) return;
-    const indicator = document.createElement("div");
-    indicator.className = "drop-indicator";
+    if (cards.length === 0) { removeDropIndicator(container); return; }
+    let indicator = container.querySelector(".drop-indicator");
+    if (!indicator) {
+        indicator = document.createElement("div");
+        indicator.className = "drop-indicator";
+    }
     const idx = getDropIndex(container, y);
     if (idx < cards.length) {
         cards[idx].before(indicator);
