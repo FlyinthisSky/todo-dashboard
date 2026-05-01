@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exemples de Favicon — Ma Semaine</title>
+    <style>
+        :root {
+            --bg-dark: #1e1812;
+            --bg-dark-alt: #2a2118;
+            --bg-column: #2a2420;
+            --text-primary: #e8d5c0;
+            --text-secondary: #a89580;
+            --accent-warm: #d4a574;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Quicksand', system-ui, sans-serif;
+            background: linear-gradient(160deg, var(--bg-dark-alt) 0%, var(--bg-dark) 40%, var(--bg-dark-alt) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 3rem 2rem;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            color: var(--accent-warm);
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+            font-size: 0.95rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--bg-column);
+            border-radius: 12px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            border: 1px solid rgba(212, 165, 116, 0.1);
+        }
+
+        .card h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent-warm);
+            text-align: center;
+        }
+
+        .preview-row {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .preview-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .size-32 svg { width: 32px; height: 32px; }
+        .size-16 svg { width: 16px; height: 16px; }
+
+        .code-block {
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 1rem;
+            width: 100%;
+            font-family: monospace;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+
+        .usage-note {
+            background: rgba(212, 165, 116, 0.08);
+            border-left: 3px solid var(--accent-warm);
+            border-radius: 0 8px 8px 0;
+            padding: 0.75rem 1rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            width: 100%;
+        }
+
+        .usage-note code {
+            color: var(--accent-warm);
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Exemples de Favicon SVG — Ma Semaine</h1>
+<p class="subtitle">5 propositions d'icône pour le Todo Dashboard. Ajouter dans &lt;head&gt; : <code style="color:var(--accent-warm);font-family:monospace">&lt;link rel="icon" type="image/svg+xml" href="favicon.svg"&gt;</code></p>
+
+<div class="grid">
+
+    <!-- 1. Checklist simple -->
+    <div class="card">
+        <h2>1 — Checklist simple</h2>
+        <div class="preview-row">
+            <div>
+                <div class="size-32">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <rect x="8" y="9" width="16" height="2.5" rx="1.25" fill="#a89580"/>
+                        <rect x="8" y="14.75" width="16" height="2.5" rx="1.25" fill="#a89580"/>
+                        <rect x="8" y="20.5" width="10" height="2.5" rx="1.25" fill="#a89580"/>
+                        <circle cx="6.5" cy="10.25" r="1.5" fill="#d4a574"/>
+                        <circle cx="6.5" cy="16" r="1.5" fill="#d4a574"/>
+                        <polyline points="5,22 6.2,23.5 8,21" stroke="#d4a574" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="preview-label">32×32</div>
+            </div>
+            <div>
+                <div class="size-16">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <rect x="8" y="9" width="16" height="2.5" rx="1.25" fill="#a89580"/>
+                        <rect x="8" y="14.75" width="16" height="2.5" rx="1.25" fill="#a89580"/>
+                        <rect x="8" y="20.5" width="10" height="2.5" rx="1.25" fill="#a89580"/>
+                        <circle cx="6.5" cy="10.25" r="1.5" fill="#d4a574"/>
+                        <circle cx="6.5" cy="16" r="1.5" fill="#d4a574"/>
+                        <polyline points="5,22 6.2,23.5 8,21" stroke="#d4a574" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="preview-label">16×16</div>
+            </div>
+        </div>
+        <div class="code-block">&lt;svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 32 32"&gt;
+  &lt;rect width="32" height="32" rx="7"
+        fill="#2a2420"/&gt;
+  &lt;rect x="8" y="9" width="16" height="2.5"
+        rx="1.25" fill="#a89580"/&gt;
+  &lt;rect x="8" y="14.75" width="16" height="2.5"
+        rx="1.25" fill="#a89580"/&gt;
+  &lt;rect x="8" y="20.5" width="10" height="2.5"
+        rx="1.25" fill="#a89580"/&gt;
+  &lt;circle cx="6.5" cy="10.25" r="1.5"
+          fill="#d4a574"/&gt;
+  &lt;circle cx="6.5" cy="16" r="1.5"
+          fill="#d4a574"/&gt;
+  &lt;polyline points="5,22 6.2,23.5 8,21"
+    stroke="#d4a574" stroke-width="1.3"
+    fill="none" stroke-linecap="round"
+    stroke-linejoin="round"/&gt;
+&lt;/svg&gt;</div>
+        <div class="usage-note">Liste de tâches classique — claire et reconnaissable immédiatement.</div>
+    </div>
+
+    <!-- 2. Calendrier semaine -->
+    <div class="card">
+        <h2>2 — Calendrier semaine</h2>
+        <div class="preview-row">
+            <div>
+                <div class="size-32">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <rect x="5" y="8" width="22" height="18" rx="3" fill="#1e1812" stroke="#d4a574" stroke-width="1.5"/>
+                        <rect x="5" y="8" width="22" height="6" rx="3" fill="#d4a574"/>
+                        <rect x="5" y="11" width="22" height="3" fill="#d4a574"/>
+                        <text x="16" y="15" text-anchor="middle" font-family="system-ui" font-size="5" font-weight="700" fill="#1e1812">MAI</text>
+                        <rect x="9" y="19" width="3" height="3" rx="0.5" fill="#a89580"/>
+                        <rect x="14.5" y="19" width="3" height="3" rx="0.5" fill="#a89580"/>
+                        <rect x="20" y="19" width="3" height="3" rx="0.5" fill="#d4a574"/>
+                        <rect x="9" y="23" width="3" height="1.5" rx="0.5" fill="#a89580" opacity="0.5"/>
+                        <rect x="14.5" y="23" width="3" height="1.5" rx="0.5" fill="#a89580" opacity="0.5"/>
+                    </svg>
+                </div>
+                <div class="preview-label">32×32</div>
+            </div>
+            <div>
+                <div class="size-16">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <rect x="5" y="8" width="22" height="18" rx="3" fill="#1e1812" stroke="#d4a574" stroke-width="1.5"/>
+                        <rect x="5" y="8" width="22" height="6" rx="3" fill="#d4a574"/>
+                        <rect x="5" y="11" width="22" height="3" fill="#d4a574"/>
+                        <text x="16" y="15" text-anchor="middle" font-family="system-ui" font-size="5" font-weight="700" fill="#1e1812">MAI</text>
+                        <rect x="9" y="19" width="3" height="3" rx="0.5" fill="#a89580"/>
+                        <rect x="14.5" y="19" width="3" height="3" rx="0.5" fill="#a89580"/>
+                        <rect x="20" y="19" width="3" height="3" rx="0.5" fill="#d4a574"/>
+                        <rect x="9" y="23" width="3" height="1.5" rx="0.5" fill="#a89580" opacity="0.5"/>
+                        <rect x="14.5" y="23" width="3" height="1.5" rx="0.5" fill="#a89580" opacity="0.5"/>
+                    </svg>
+                </div>
+                <div class="preview-label">16×16</div>
+            </div>
+        </div>
+        <div class="code-block">&lt;svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 32 32"&gt;
+  &lt;rect width="32" height="32" rx="7"
+        fill="#2a2420"/&gt;
+  &lt;rect x="5" y="8" width="22" height="18"
+        rx="3" fill="#1e1812"
+        stroke="#d4a574" stroke-width="1.5"/&gt;
+  &lt;rect x="5" y="8" width="22" height="6"
+        rx="3" fill="#d4a574"/&gt;
+  &lt;rect x="5" y="11" width="22" height="3"
+        fill="#d4a574"/&gt;
+  &lt;text x="16" y="15" text-anchor="middle"
+    font-family="system-ui" font-size="5"
+    font-weight="700" fill="#1e1812"&gt;MAI&lt;/text&gt;
+  &lt;rect x="9" y="19" width="3" height="3"
+        rx="0.5" fill="#a89580"/&gt;
+  &lt;rect x="14.5" y="19" width="3" height="3"
+        rx="0.5" fill="#a89580"/&gt;
+  &lt;rect x="20" y="19" width="3" height="3"
+        rx="0.5" fill="#d4a574"/&gt;
+&lt;/svg&gt;</div>
+        <div class="usage-note">Rappelle la vue <code>Semaine</code> de l'app — en accord avec le nom "Ma Semaine".</div>
+    </div>
+
+    <!-- 3. Lettre "S" stylisée -->
+    <div class="card">
+        <h2>3 — Initiale "S" stylisée</h2>
+        <div class="preview-row">
+            <div>
+                <div class="size-32">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <text x="16" y="22.5" text-anchor="middle"
+                              font-family="Georgia, serif" font-size="22"
+                              font-weight="700" fill="#d4a574"
+                              letter-spacing="-1">S</text>
+                        <circle cx="16" cy="16" r="13" fill="none" stroke="#d4a574" stroke-width="1" opacity="0.3"/>
+                    </svg>
+                </div>
+                <div class="preview-label">32×32</div>
+            </div>
+            <div>
+                <div class="size-16">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <text x="16" y="22.5" text-anchor="middle"
+                              font-family="Georgia, serif" font-size="22"
+                              font-weight="700" fill="#d4a574"
+                              letter-spacing="-1">S</text>
+                        <circle cx="16" cy="16" r="13" fill="none" stroke="#d4a574" stroke-width="1" opacity="0.3"/>
+                    </svg>
+                </div>
+                <div class="preview-label">16×16</div>
+            </div>
+        </div>
+        <div class="code-block">&lt;svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 32 32"&gt;
+  &lt;rect width="32" height="32" rx="7"
+        fill="#2a2420"/&gt;
+  &lt;text x="16" y="22.5" text-anchor="middle"
+    font-family="Georgia, serif" font-size="22"
+    font-weight="700" fill="#d4a574"
+    letter-spacing="-1"&gt;S&lt;/text&gt;
+  &lt;circle cx="16" cy="16" r="13"
+    fill="none" stroke="#d4a574"
+    stroke-width="1" opacity="0.3"/&gt;
+&lt;/svg&gt;</div>
+        <div class="usage-note">Minimaliste — le "S" pour <em>Semaine</em>. Très lisible même en 16×16.</div>
+    </div>
+
+    <!-- 4. Coche dorée -->
+    <div class="card">
+        <h2>4 — Coche dorée</h2>
+        <div class="preview-row">
+            <div>
+                <div class="size-32">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <rect x="6" y="6" width="20" height="20" rx="4" fill="#1e1812" stroke="#d4a574" stroke-width="1.5"/>
+                        <polyline points="10,16.5 14,21 22,11"
+                                  stroke="#d4a574" stroke-width="2.5"
+                                  fill="none" stroke-linecap="round"
+                                  stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="preview-label">32×32</div>
+            </div>
+            <div>
+                <div class="size-16">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <rect x="6" y="6" width="20" height="20" rx="4" fill="#1e1812" stroke="#d4a574" stroke-width="1.5"/>
+                        <polyline points="10,16.5 14,21 22,11"
+                                  stroke="#d4a574" stroke-width="2.5"
+                                  fill="none" stroke-linecap="round"
+                                  stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="preview-label">16×16</div>
+            </div>
+        </div>
+        <div class="code-block">&lt;svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 32 32"&gt;
+  &lt;rect width="32" height="32" rx="7"
+        fill="#2a2420"/&gt;
+  &lt;rect x="6" y="6" width="20" height="20"
+        rx="4" fill="#1e1812"
+        stroke="#d4a574" stroke-width="1.5"/&gt;
+  &lt;polyline points="10,16.5 14,21 22,11"
+    stroke="#d4a574" stroke-width="2.5"
+    fill="none" stroke-linecap="round"
+    stroke-linejoin="round"/&gt;
+&lt;/svg&gt;</div>
+        <div class="usage-note">Symbole universel de "tâche complète". Simple, impactant, parfait pour un todo.</div>
+    </div>
+
+    <!-- 5. Soleil / Semaine lumineuse -->
+    <div class="card">
+        <h2>5 — Soleil doux</h2>
+        <div class="preview-row">
+            <div>
+                <div class="size-32">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <circle cx="16" cy="16" r="6" fill="#d4a574"/>
+                        <line x1="16" y1="4" x2="16" y2="8" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="16" y1="24" x2="16" y2="28" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="4" y1="16" x2="8" y2="16" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="24" y1="16" x2="28" y2="16" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="7.8" y1="7.8" x2="10.6" y2="10.6" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="21.4" y1="21.4" x2="24.2" y2="24.2" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="24.2" y1="7.8" x2="21.4" y2="10.6" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="10.6" y1="21.4" x2="7.8" y2="24.2" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="preview-label">32×32</div>
+            </div>
+            <div>
+                <div class="size-16">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+                        <rect width="32" height="32" rx="7" fill="#2a2420"/>
+                        <circle cx="16" cy="16" r="6" fill="#d4a574"/>
+                        <line x1="16" y1="4" x2="16" y2="8" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="16" y1="24" x2="16" y2="28" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="4" y1="16" x2="8" y2="16" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="24" y1="16" x2="28" y2="16" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="7.8" y1="7.8" x2="10.6" y2="10.6" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="21.4" y1="21.4" x2="24.2" y2="24.2" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="24.2" y1="7.8" x2="21.4" y2="10.6" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="10.6" y1="21.4" x2="7.8" y2="24.2" stroke="#d4a574" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="preview-label">16×16</div>
+            </div>
+        </div>
+        <div class="code-block">&lt;svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 32 32"&gt;
+  &lt;rect width="32" height="32" rx="7"
+        fill="#2a2420"/&gt;
+  &lt;circle cx="16" cy="16" r="6"
+          fill="#d4a574"/&gt;
+  &lt;line x1="16" y1="4" x2="16" y2="8"
+    stroke="#d4a574" stroke-width="2"
+    stroke-linecap="round"/&gt;
+  &lt;line x1="16" y1="24" x2="16" y2="28"
+    stroke="#d4a574" stroke-width="2"
+    stroke-linecap="round"/&gt;
+  &lt;line x1="4" y1="16" x2="8" y2="16"
+    stroke="#d4a574" stroke-width="2"
+    stroke-linecap="round"/&gt;
+  &lt;line x1="24" y1="16" x2="28" y2="16"
+    stroke="#d4a574" stroke-width="2"
+    stroke-linecap="round"/&gt;
+  &lt;!-- + 4 diagonales identiques --&gt;
+&lt;/svg&gt;</div>
+        <div class="usage-note">Évoque la journée / la semaine à venir. Chaleureux et positif, en accord avec l'ambiance de l'app.</div>
+    </div>
+
+</div>
+</body>
+</html>
